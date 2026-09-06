@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   MasterIdentity,
   ROIItem,
+  ROIBox,
   MeasuredEvidence,
   EstimatedRecommendation,
   ROIDecision,
@@ -85,7 +86,7 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
   const [productName, setProductName] = useState<string>('Produk Uji Studio');
 
   // State ROI & Analisis
-  const [roiPreset, setRoiPreset] = useState<'center' | 'multi' | 'full'>('center');
+  const [roiPreset, setRoiPreset] = useState<'center' | 'multi' | 'full' | 'custom'>('center');
   const [rois, setRois] = useState<ROIItem[]>(ROI_PRESETS.center);
   const [selectedRoiId, setSelectedRoiId] = useState<string>('roi-center');
   const [roiMeasured, setRoiMeasured] = useState<Record<string, MeasuredEvidence>>({});
@@ -114,14 +115,15 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
     saturation: 0,
   });
   const [correctionConflict, setCorrectionConflict] = useState<CorrectionConflict>({ hasConflict: false });
-  const [isPreviewingCorrection, setIsPreviewingCorrection] = useState<boolean>(false);
 
-  // Modal Alasan FAIL
+  // State Modal & Preview
+  const [isPreviewingCorrection, setIsPreviewingCorrection] = useState<boolean>(false);
   const [failModalOpen, setFailModalOpen] = useState<boolean>(false);
-  const [failTarget, setFailTarget] = useState<{ type: 'roi' | 'product'; id?: string; name: string }>({
-    type: 'product',
-    name: 'Produk Keseluruhan',
-  });
+  const [failTarget, setFailTarget] = useState<{
+    type: 'roi' | 'product';
+    id?: string;
+    name: string;
+  }>({ type: 'product', name: '' });
 
   // Metadata Gambar
   const [imageMetadata, setImageMetadata] = useState<ImageMetadata>({
@@ -157,13 +159,27 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
     }
   }, [appMode, currentMaster.code]);
 
-  const switchRoiPreset = (preset: 'center' | 'multi' | 'full') => {
+  const switchRoiPreset = (preset: 'center' | 'multi' | 'full' | 'custom') => {
     setRoiPreset(preset);
-    const newRois = ROI_PRESETS[preset];
-    setRois(newRois);
-    setSelectedRoiId(newRois[0].id);
+    if (preset !== 'custom') {
+      const newRois = ROI_PRESETS[preset];
+      setRois(newRois);
+      setSelectedRoiId(newRois[0].id);
+      if (comparisonStatus === 'completed' && masterImageSrc && productImageSrc) {
+        executeComparison(masterImageSrc, productImageSrc, newRois);
+      }
+    }
+  };
+
+  // Handler saat pengguna menggeser atau mengubah ukuran kotak area di foto
+  const handleUpdateRoiBox = (roiId: string, newBox: ROIBox) => {
+    setRoiPreset('custom');
+    const updatedRois = rois.map((r) => (r.id === roiId ? { ...r, box: newBox } : r));
+    setRois(updatedRois);
+
+    // Otomatis hitung ulang perbandingan jika sudah dalam status selesai dibandingkan
     if (comparisonStatus === 'completed' && masterImageSrc && productImageSrc) {
-      executeComparison(masterImageSrc, productImageSrc, newRois);
+      executeComparison(masterImageSrc, productImageSrc, updatedRois);
     }
   };
 
@@ -652,6 +668,16 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
               >
                 📐 Seluruh Permukaan
               </button>
+              <button
+                onClick={() => switchRoiPreset('custom')}
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition flex items-center gap-1 ${
+                  roiPreset === 'custom'
+                    ? 'bg-amber-500 text-black font-bold shadow-md'
+                    : 'bg-studio-950 text-studio-400 hover:text-white border border-studio-800'
+                }`}
+              >
+                <span>✏️ Area Bebas (Manual)</span>
+              </button>
             </div>
           </div>
         )}
@@ -783,6 +809,7 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
           subtitle={masterFileName ? `Berkas: ${masterFileName}` : 'Langkah 1: Klik kotak ini untuk memilih foto sampel master kayu (JPG/RAW)'}
           imageSrc={masterImageSrc}
           isMaster={true}
+          isEditableRoi={false}
           onUploadImage={handleMasterUpload}
           uploadButtonText="Pilih / Unggah Foto Master Kayu (JPG / RAW)"
         />
@@ -795,6 +822,8 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
           rois={rois}
           selectedRoiId={selectedRoiId}
           onSelectRoi={setSelectedRoiId}
+          onUpdateRoiBox={handleUpdateRoiBox}
+          isEditableRoi={true}
           roiEstimations={roiEstimated}
           isPreviewingCorrection={isPreviewingCorrection}
           onUploadImage={handleProductUpload}

@@ -75,7 +75,24 @@ console.log('   - Banner Sukses Hijau Tampil:', hasSuccessBanner);
 console.log('   - Tombol Keputusan PASS Tampil:', hasPassBtn);
 console.log('   - Tombol Keputusan FAIL Tampil:', hasFailBtn);
 
-console.log('11. Mengambil Screenshot Bukti Visual...');
+// 11. Uji Fitur Baru: Zoom In & Alat Interaktif Area
+console.log('11. Menguji Fitur Zoom In pada Foto Produk...');
+await page.click('#btn-zoom-in-product-file-input');
+await page.waitForTimeout(300);
+await page.click('#btn-zoom-in-product-file-input');
+await page.waitForTimeout(300);
+
+const bodyAfterZoom = await page.locator('body').innerText();
+const hasZoom150 = bodyAfterZoom.includes('150%');
+console.log('   - Indikator Zoom 150% aktif:', hasZoom150);
+
+// Uji tombol mode alat (Pilih/Geser Area)
+const hasToolSelect = await page.locator('#btn-tool-select-product-file-input').isVisible();
+const hasToolDraw = await page.locator('#btn-tool-draw-product-file-input').isVisible();
+console.log('   - Tombol Mode Geser Area tampil:', hasToolSelect);
+console.log('   - Tombol Mode Tarik Kotak tampil:', hasToolDraw);
+
+console.log('12. Mengambil Screenshot Bukti Visual...');
 const screenshotPath = 'C:\\Users\\shint\\.gemini\\antigravity\\brain\\10babefe-7e2a-4e74-83a2-acb363927ee4\\browser_test_playwright.png';
 await page.screenshot({ path: screenshotPath, fullPage: true });
 console.log('   - Screenshot berhasil disimpan di:', screenshotPath);
