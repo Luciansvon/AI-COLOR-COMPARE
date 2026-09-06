@@ -155,6 +155,8 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
   // 'analyzing' (Sedang memeriksa piksel warna & tekstur)
   // 'completed' (Selesai dibandingkan, hasil siap dilihat)
   const [comparisonStatus, setComparisonStatus] = useState<'idle' | 'ready' | 'analyzing' | 'completed'>('idle');
+  const [isRecomparing, setIsRecomparing] = useState<boolean>(false);
+  const [recompareSuccess, setRecompareSuccess] = useState<boolean>(false);
 
   // 1. Muat Gambar hanya jika pengguna memilih Mode Demo Simulasi
   useEffect(() => {
@@ -340,6 +342,34 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
     } catch (err) {
       console.error('Gagal melakukan ekstraksi dan perbandingan piksel:', err);
       setComparisonStatus('ready');
+    }
+  };
+
+  // Handler untuk tombol "Bandingkan Ulang" dengan animasi visual nyata & respon tegas
+  const handleRecompareClick = async () => {
+    if (isRecomparing || !masterImageSrc || !productImageSrc) return;
+    setIsRecomparing(true);
+    setRecompareSuccess(false);
+
+    try {
+      // Jika pengguna sedang menyalakan preview koreksi (slider aktif), gunakan foto hasil koreksi
+      const targetProductImg = isPreviewingCorrection && previewImageSrc ? previewImageSrc : productImageSrc;
+
+      // Jeda proses realistis (~400ms) agar mata pengguna melihat animasi berputar dan status memproses
+      await new Promise((resolve) => setTimeout(resolve, 400));
+
+      await executeComparison(masterImageSrc, targetProductImg, rois, true);
+
+      setIsRecomparing(false);
+      setRecompareSuccess(true);
+
+      // Kembalikan tanda sukses ke teks tombol normal setelah 1.5 detik
+      setTimeout(() => {
+        setRecompareSuccess(false);
+      }, 1500);
+    } catch (err) {
+      console.error('Gagal saat membandingkan ulang:', err);
+      setIsRecomparing(false);
     }
   };
 
@@ -917,9 +947,21 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
               </span>
             )}
             {comparisonStatus === 'completed' && (
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
-                ✅ Selesai Dibandingkan!
-              </span>
+              isRecomparing ? (
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-sky-500/20 text-sky-300 border border-sky-500/40 flex items-center gap-1.5 animate-pulse">
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin text-sky-400" />
+                  <span>⚙️ Sedang Memeriksa Ulang...</span>
+                </span>
+              ) : recompareSuccess ? (
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>✅ Hasil Diperbarui!</span>
+                </span>
+              ) : (
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                  ✅ Selesai Dibandingkan!
+                </span>
+              )
             )}
           </div>
           <p className="text-xs text-studio-400">
@@ -929,6 +971,8 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
               ? 'Langkah 2: Kedua foto sudah siap! Klik tombol kuning di samping untuk mulai membandingkan warna dan serat kayu.'
               : comparisonStatus === 'analyzing'
               ? 'Sistem sedang membaca piksel warna CIEDE2000 dan pola serat kayu LBP...'
+              : isRecomparing
+              ? 'Sistem sedang membaca ulang piksel warna dan tekstur serat area terpilih...'
               : 'Pemeriksaan selesai. Rincian hasil perbandingan dan tombol keputusan tersedia di bawah.'}
           </p>
         </div>
@@ -968,11 +1012,32 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
           {comparisonStatus === 'completed' && (
             <button
               id="btn-recompare"
-              onClick={() => executeComparison()}
-              className="px-5 py-3 rounded-xl bg-studio-800 hover:bg-studio-700 text-studio-200 hover:text-white border border-studio-700 text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition"
+              onClick={handleRecompareClick}
+              disabled={isRecomparing}
+              className={`px-5 py-3 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition shadow-md ${
+                isRecomparing
+                  ? 'bg-studio-800 text-amber-300 border border-amber-500/40 cursor-wait'
+                  : recompareSuccess
+                  ? 'bg-emerald-600 text-white border border-emerald-400 scale-105'
+                  : 'bg-studio-800 hover:bg-studio-700 text-studio-200 hover:text-white border border-studio-700 active:scale-95'
+              }`}
             >
-              <RefreshCw className="w-4 h-4" />
-              <span>Bandingkan Ulang</span>
+              {isRecomparing ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin text-amber-400" />
+                  <span>MEMERIKSA ULANG PIKSEL & SERAT...</span>
+                </>
+              ) : recompareSuccess ? (
+                <>
+                  <CheckCircle2 className="w-4 h-4 text-white" />
+                  <span>BERHASIL DIPERBARUI!</span>
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="w-4 h-4" />
+                  <span>Bandingkan Ulang</span>
+                </>
+              )}
             </button>
           )}
         </div>
