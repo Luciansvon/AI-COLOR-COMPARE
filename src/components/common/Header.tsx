@@ -19,9 +19,11 @@ export const Header: React.FC<HeaderProps> = ({
     <header className="h-16 border-b border-studio-800 bg-studio-900/90 backdrop-blur-md px-6 flex items-center justify-between sticky top-0 z-30">
       {/* Brand & System Title */}
       <div className="flex items-center space-x-3">
-        <div className="w-10 h-10 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 shadow-inner">
-          <Layers className="w-5 h-5" />
-        </div>
+        <img
+          src="/app-icon.png"
+          alt="Studio QC"
+          className="w-10 h-10 rounded-lg object-cover shadow-md border border-studio-700 bg-white"
+        />
         <div>
           <div className="flex items-center space-x-2">
             <h1 className="text-base font-semibold text-white tracking-wide">
