@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { ROIItem, EstimatedRecommendation } from '../../types';
-import { ShieldCheck, Eye, Sparkles } from 'lucide-react';
+import { ShieldCheck, Eye, Sparkles, Upload, RefreshCw } from 'lucide-react';
 
 interface InteractiveImageViewerProps {
   title: string;
@@ -12,6 +12,8 @@ interface InteractiveImageViewerProps {
   roiEstimations?: Record<string, EstimatedRecommendation>;
   isMaster?: boolean;
   isPreviewingCorrection?: boolean;
+  onUploadImage?: (file: File) => void;
+  uploadButtonText?: string;
 }
 
 export const InteractiveImageViewer: React.FC<InteractiveImageViewerProps> = ({
@@ -24,9 +26,28 @@ export const InteractiveImageViewer: React.FC<InteractiveImageViewerProps> = ({
   roiEstimations = {},
   isMaster = false,
   isPreviewingCorrection = false,
+  onUploadImage,
+  uploadButtonText = 'Pilih Foto (JPG / RAW)',
 }) => {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && onUploadImage) {
+      onUploadImage(file);
+    }
+  };
+
   return (
     <div className="flex flex-col bg-studio-900 border border-studio-800 rounded-xl overflow-hidden shadow-lg">
+      <input
+        type="file"
+        ref={fileInputRef}
+        accept=".jpg,.jpeg,.png,.cr2,.cr3,.arw,.nef,.raf,.dng,.tiff"
+        onChange={handleFileChange}
+        className="hidden"
+      />
+
       {/* Header Panel */}
       <div className="px-4 py-3 border-b border-studio-800 flex items-center justify-between bg-studio-900/80">
         <div className="flex items-center space-x-2">
@@ -47,12 +68,24 @@ export const InteractiveImageViewer: React.FC<InteractiveImageViewerProps> = ({
           </div>
         </div>
 
-        {isPreviewingCorrection && (
-          <span className="flex items-center gap-1 text-[11px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 animate-pulse">
-            <Sparkles className="w-3 h-3" />
-            Preview Koreksi Aktif
-          </span>
-        )}
+        <div className="flex items-center space-x-2">
+          {isPreviewingCorrection && (
+            <span className="flex items-center gap-1 text-[11px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 animate-pulse">
+              <Sparkles className="w-3 h-3" />
+              Preview Koreksi Aktif
+            </span>
+          )}
+
+          {onUploadImage && imageSrc && (
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="px-2.5 py-1 rounded bg-studio-800 hover:bg-studio-700 border border-studio-700 text-studio-300 hover:text-white text-[11px] font-medium flex items-center gap-1.5 transition"
+            >
+              <RefreshCw className="w-3 h-3" />
+              <span>Ganti Foto</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Image & ROI Container */}
@@ -64,7 +97,20 @@ export const InteractiveImageViewer: React.FC<InteractiveImageViewerProps> = ({
             className="w-full h-full object-contain"
           />
         ) : (
-          <div className="text-xs text-studio-500">Memuat gambar studio...</div>
+          <div
+            onClick={() => onUploadImage && fileInputRef.current?.click()}
+            className="w-full h-full flex flex-col items-center justify-center p-6 border-2 border-dashed border-studio-800 hover:border-amber-500/60 transition cursor-pointer group bg-studio-950/60"
+          >
+            <div className="w-12 h-12 rounded-full bg-studio-900 border border-studio-800 group-hover:border-amber-500/50 flex items-center justify-center text-studio-400 group-hover:text-amber-400 mb-3 transition shadow-inner">
+              <Upload className="w-5 h-5" />
+            </div>
+            <span className="text-xs font-semibold text-studio-200 group-hover:text-amber-300 text-center">
+              {uploadButtonText}
+            </span>
+            <span className="text-[11px] text-studio-500 mt-1 text-center">
+              Klik di sini untuk memilih foto format JPG, JPEG, PNG, atau RAW
+            </span>
+          </div>
         )}
 
         {/* Overlay Kotak ROI */}

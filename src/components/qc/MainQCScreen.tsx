@@ -20,7 +20,7 @@ import { compareStats } from '../../color_science/metrics';
 import { calculateRecommendedCorrection } from '../../color_science/correction';
 import { evaluateMaterialFusion } from '../../color_science/texture';
 import { generateWoodTextureImage } from '../../utils/imageGenerator';
-import { Check, X, Upload, Sparkles, AlertTriangle, ShieldCheck, Camera } from 'lucide-react';
+import { Check, X, Upload, Sparkles, AlertTriangle, ShieldCheck, Camera, CheckCircle2, FolderOpen } from 'lucide-react';
 
 interface MainQCScreenProps {
   currentMaster: MasterIdentity;
@@ -33,36 +33,61 @@ const DEFAULT_ROIS: ROIItem[] = [
     id: 'roi-frame',
     name: 'Rangka Kayu (Frame)',
     role: 'master_backed',
-    box: { x: 27, y: 16, width: 9, height: 48 }, // Petak vertikal tiang kayu
+    box: { x: 27, y: 16, width: 9, height: 48 },
   },
   {
     id: 'roi-armrest',
     name: 'Sandaran Tangan (Armrest)',
     role: 'master_backed',
-    box: { x: 20, y: 43, width: 13, height: 7 }, // Petak horizontal kayu sandaran
+    box: { x: 20, y: 43, width: 13, height: 7 },
   },
   {
     id: 'roi-seat',
     name: 'Dudukan Kain (Fabric)',
-    role: 'guardrail_only', // NO MASTER
-    box: { x: 30, y: 52, width: 40, height: 12 }, // Petak kain
+    role: 'guardrail_only',
+    box: { x: 30, y: 52, width: 40, height: 12 },
   },
 ];
+
+const ROI_PRESETS = {
+  center: [
+    {
+      id: 'roi-center',
+      name: 'Area Utama Kayu (Tengah)',
+      role: 'master_backed' as const,
+      box: { x: 25, y: 25, width: 50, height: 50 },
+    },
+  ],
+  multi: DEFAULT_ROIS,
+  full: [
+    {
+      id: 'roi-full',
+      name: 'Seluruh Permukaan Kayu (Full)',
+      role: 'master_backed' as const,
+      box: { x: 5, y: 5, width: 90, height: 90 },
+    },
+  ],
+};
 
 export const MainQCScreen: React.FC<MainQCScreenProps> = ({
   currentMaster,
   onSaveQCRecord,
 }) => {
+  // Mode Aplikasi: 'upload' (Unggah foto sendiri) atau 'demo' (Simulasi contoh)
+  const [appMode, setAppMode] = useState<'upload' | 'demo'>('upload');
+
   // State Gambar
   const [masterImageSrc, setMasterImageSrc] = useState<string>('');
+  const [masterFileName, setMasterFileName] = useState<string>('');
   const [productImageSrc, setProductImageSrc] = useState<string>('');
   const [previewImageSrc, setPreviewImageSrc] = useState<string>('');
   const [selectedScenario, setSelectedScenario] = useState<string>('scenario-wb');
-  const [productName, setProductName] = useState<string>('Nordic Dining Chair (Lot #2026-A)');
+  const [productName, setProductName] = useState<string>('Produk Uji Studio');
 
   // State ROI & Analisis
-  const [rois] = useState<ROIItem[]>(DEFAULT_ROIS);
-  const [selectedRoiId, setSelectedRoiId] = useState<string>('roi-frame');
+  const [roiPreset, setRoiPreset] = useState<'center' | 'multi' | 'full'>('center');
+  const [rois, setRois] = useState<ROIItem[]>(ROI_PRESETS.center);
+  const [selectedRoiId, setSelectedRoiId] = useState<string>('roi-center');
   const [roiMeasured, setRoiMeasured] = useState<Record<string, MeasuredEvidence>>({});
   const [roiEstimated, setRoiEstimated] = useState<Record<string, EstimatedRecommendation>>({});
   const [roiFusion, setRoiFusion] = useState<Record<string, UnifiedMaterialReport>>({});
@@ -113,21 +138,62 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
     capturedAt: '2026-09-06T09:15:00Z',
   });
 
-  // 1. Muat Gambar Master dan Produk berdasarkan skenario simulasi
+  // 1. Muat Gambar hanya jika pengguna memilih Mode Demo Simulasi
   useEffect(() => {
-    // Bangkitkan gambar master panel fisik
-    const masterImg = generateWoodTextureImage('#3d2b1f', '#24170f', {
-      isChairComposition: false,
-    });
-    setMasterImageSrc(masterImg);
+    if (appMode === 'demo') {
+      const masterImg = generateWoodTextureImage('#3d2b1f', '#24170f', {
+        isChairComposition: false,
+      });
+      setMasterImageSrc(masterImg);
+      setMasterFileName(`${currentMaster.code}_simulasi_master.png`);
+      loadScenario(selectedScenario);
+    }
+  }, [appMode, currentMaster.code]);
 
-    // Bangkitkan skenario produk
-    loadScenario(selectedScenario);
-  }, [currentMaster.code]);
+  const switchRoiPreset = (preset: 'center' | 'multi' | 'full') => {
+    setRoiPreset(preset);
+    const newRois = ROI_PRESETS[preset];
+    setRois(newRois);
+    setSelectedRoiId(newRois[0].id);
+  };
+
+  const handleMasterUpload = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result as string;
+      setMasterImageSrc(dataUrl);
+      setMasterFileName(file.name);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleProductUpload = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result as string;
+      setProductImageSrc(dataUrl);
+      setPreviewImageSrc(dataUrl);
+      setImageMetadata((prev) => ({
+        ...prev,
+        fileName: file.name,
+        fileSize: file.size,
+        format: file.type || 'Decoded Image File (JPG/RAW)',
+      }));
+    };
+    reader.readAsDataURL(file);
+  };
 
   const loadScenario = (scenarioKey: string) => {
     setSelectedScenario(scenarioKey);
     setIsPreviewingCorrection(false);
+    setAppMode('demo');
+    if (!masterImageSrc) {
+      const masterImg = generateWoodTextureImage('#3d2b1f', '#24170f', {
+        isChairComposition: false,
+      });
+      setMasterImageSrc(masterImg);
+      setMasterFileName(`${currentMaster.code}_simulasi_master.png`);
+    }
 
     let prodImg = '';
     if (scenarioKey === 'scenario-match') {
@@ -198,7 +264,12 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
 
   // 2. Jalankan Analisis Setiap Kali Gambar atau Master Berubah
   useEffect(() => {
-    if (!masterImageSrc || !productImageSrc) return;
+    if (!masterImageSrc || !productImageSrc) {
+      setRoiMeasured({});
+      setRoiEstimated({});
+      setRoiFusion({});
+      return;
+    }
 
     const runAnalysis = async () => {
       const measuredMap: Record<string, MeasuredEvidence> = {};
@@ -285,7 +356,7 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
     };
 
     runAnalysis();
-  }, [masterImageSrc, productImageSrc, selectedScenario]);
+  }, [masterImageSrc, productImageSrc, selectedScenario, rois]);
 
   // 3. Render Preview Koreksi Non-Destruktif saat Slider Berubah
   useEffect(() => {
@@ -411,228 +482,340 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-12">
-      {/* Skenario Uji Coba Cepat (Fitur khusus ramah liburan untuk Mas Bima) */}
-      <div className="bg-studio-900 border border-studio-800 rounded-xl p-4 flex flex-wrap items-center justify-between gap-4">
+      {/* Pilihan Mode Kerja: Mode Uji Foto Sendiri (Default) vs Mode Demo Simulasi */}
+      <div className="bg-studio-900 border border-studio-800 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4 shadow-md">
         <div className="flex items-center space-x-2">
-          <span className="text-xs font-semibold text-studio-300 uppercase tracking-wider">
-            Skenario Simulasi Studio:
-          </span>
-          <div className="flex items-center space-x-1.5">
+          <button
+            onClick={() => {
+              setAppMode('upload');
+              setMasterImageSrc('');
+              setMasterFileName('');
+              setProductImageSrc('');
+              setPreviewImageSrc('');
+              setRoiMeasured({});
+              setRoiEstimated({});
+              setRoiFusion({});
+            }}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
+              appMode === 'upload'
+                ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20'
+                : 'bg-studio-950 text-studio-400 hover:text-white border border-studio-800'
+            }`}
+          >
+            <Upload className="w-4 h-4" />
+            1. Mode Uji Foto Sendiri (JPG / RAW)
+          </button>
+
+          <button
+            onClick={() => {
+              setAppMode('demo');
+              loadScenario('scenario-match');
+            }}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
+              appMode === 'demo'
+                ? 'bg-studio-800 text-amber-300 border border-amber-500/40 shadow-lg'
+                : 'bg-studio-950 text-studio-400 hover:text-white border border-studio-800'
+            }`}
+          >
+            <Sparkles className="w-4 h-4" />
+            2. Mode Contoh Demo Studio
+          </button>
+        </div>
+
+        {/* Jika mode demo aktif, tampilkan 6 tombol skenario cepat */}
+        {appMode === 'demo' && (
+          <div className="flex items-center space-x-1.5 flex-wrap gap-y-1.5">
             <button
               onClick={() => loadScenario('scenario-match')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+              className={`px-2.5 py-1 rounded-lg text-xs font-medium transition ${
                 selectedScenario === 'scenario-match'
                   ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
                   : 'bg-studio-950 text-studio-400 hover:text-white border border-studio-800'
               }`}
             >
-              1. Finishing Sesuai (Lolos)
+              1. Sesuai
             </button>
             <button
               onClick={() => loadScenario('scenario-wb')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+              className={`px-2.5 py-1 rounded-lg text-xs font-medium transition ${
                 selectedScenario === 'scenario-wb'
                   ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
                   : 'bg-studio-950 text-studio-400 hover:text-white border border-studio-800'
               }`}
             >
-              2. Masalah Lampu / WB
+              2. Lampu / WB
             </button>
             <button
               onClick={() => loadScenario('scenario-material')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+              className={`px-2.5 py-1 rounded-lg text-xs font-medium transition ${
                 selectedScenario === 'scenario-material'
                   ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
                   : 'bg-studio-950 text-studio-400 hover:text-white border border-studio-800'
               }`}
             >
-              3. Material Berbeda (Cacat)
+              3. Material Cacat
             </button>
             <button
               onClick={() => loadScenario('scenario-conflict')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+              className={`px-2.5 py-1 rounded-lg text-xs font-medium transition ${
                 selectedScenario === 'scenario-conflict'
                   ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40'
                   : 'bg-studio-950 text-studio-400 hover:text-white border border-studio-800'
               }`}
             >
-              4. Uji Konflik Koreksi
+              4. Konflik
             </button>
             <button
               onClick={() => loadScenario('scenario-canon-raw')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+              className={`px-2.5 py-1 rounded-lg text-xs font-medium transition ${
                 selectedScenario === 'scenario-canon-raw'
                   ? 'bg-sky-500/20 text-sky-300 border border-sky-500/40'
                   : 'bg-studio-950 text-studio-400 hover:text-white border border-studio-800'
               }`}
             >
-              5. Canon Asli (.CR2)
+              5. Canon CR2
             </button>
             <button
               onClick={() => loadScenario('scenario-nikon-raw')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+              className={`px-2.5 py-1 rounded-lg text-xs font-medium transition ${
                 selectedScenario === 'scenario-nikon-raw'
                   ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
                   : 'bg-studio-950 text-studio-400 hover:text-white border border-studio-800'
               }`}
             >
-              6. Nikon Asli (.NEF)
+              6. Nikon NEF
             </button>
           </div>
-        </div>
+        )}
 
-        {/* Input Unggah Foto Nyata (Kamera Studio) */}
-        <label className="cursor-pointer px-3.5 py-1.5 rounded-lg bg-studio-800 hover:bg-studio-700 border border-studio-700 text-xs font-medium text-studio-200 flex items-center gap-1.5 transition">
-          <Upload className="w-3.5 h-3.5 text-amber-400" />
-          <span>Buka Foto Kamera (RAW/JPEG)</span>
-          <input
-            type="file"
-            accept=".cr2,.cr3,.arw,.nef,.raf,.dng,.jpg,.jpeg,.png,.tiff"
-            onChange={handleFileUpload}
-            className="hidden"
-          />
-        </label>
+        {/* Jika mode unggah aktif, tampilkan pilihan preset area kayu */}
+        {appMode === 'upload' && (
+          <div className="flex items-center space-x-2 text-xs">
+            <span className="text-studio-400">Pilihan Area Uji:</span>
+            <div className="flex items-center space-x-1">
+              <button
+                onClick={() => switchRoiPreset('center')}
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition ${
+                  roiPreset === 'center'
+                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                    : 'bg-studio-950 text-studio-400 hover:text-white border border-studio-800'
+                }`}
+              >
+                🎯 Area Tengah
+              </button>
+              <button
+                onClick={() => switchRoiPreset('multi')}
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition ${
+                  roiPreset === 'multi'
+                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                    : 'bg-studio-950 text-studio-400 hover:text-white border border-studio-800'
+                }`}
+              >
+                🪑 Multi-Area
+              </button>
+              <button
+                onClick={() => switchRoiPreset('full')}
+                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition ${
+                  roiPreset === 'full'
+                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                    : 'bg-studio-950 text-studio-400 hover:text-white border border-studio-800'
+                }`}
+              >
+                📐 Seluruh Permukaan
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Grid 2 Penampil Gambar (Master vs Produk) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Kolom Kiri: Papan Master Fisik Acuan */}
         <InteractiveImageViewer
-          title="Papan Master Fisik Acuan"
-          subtitle={`Master Code: ${currentMaster.code} — ${currentMaster.name}`}
+          title="Foto Papan Master Acuan"
+          subtitle={masterFileName ? `Berkas: ${masterFileName}` : 'Klik kotak untuk memilih foto master kayu (JPG/RAW)'}
           imageSrc={masterImageSrc}
           isMaster={true}
+          onUploadImage={handleMasterUpload}
+          uploadButtonText="Pilih / Unggah Foto Master Kayu (JPG / RAW)"
         />
 
         {/* Kolom Kanan: Foto Produk Studio */}
         <InteractiveImageViewer
-          title="Foto Produk Studio"
-          subtitle={imageMetadata.fileName}
+          title="Foto Produk Studio yang Mau Dicek"
+          subtitle={imageMetadata.fileName && productImageSrc ? `Berkas: ${imageMetadata.fileName}` : 'Klik kotak untuk memilih foto produk yang mau dicek (JPG/RAW)'}
           imageSrc={previewImageSrc}
           rois={rois}
           selectedRoiId={selectedRoiId}
           onSelectRoi={setSelectedRoiId}
           roiEstimations={roiEstimated}
           isPreviewingCorrection={isPreviewingCorrection}
+          onUploadImage={handleProductUpload}
+          uploadButtonText="Pilih / Unggah Foto Produk Studio (JPG / RAW)"
         />
       </div>
 
-      {/* Metadata Pengambilan Gambar (EXIF Studio) */}
-      <div className="bg-studio-900 border border-studio-800 rounded-xl px-4 py-3 text-xs text-studio-400 flex flex-wrap items-center justify-between gap-4 font-mono">
-        <div className="flex items-center space-x-2 text-studio-300">
-          <Camera className="w-4 h-4 text-amber-400" />
-          <span className="font-semibold">{imageMetadata.cameraModel}</span>
+      {/* Banner Panduan jika foto belum lengkap dimasukkan */}
+      {(!masterImageSrc || !productImageSrc) && (
+        <div className="bg-gradient-to-br from-studio-900 to-studio-950 border border-amber-500/30 rounded-2xl p-6 text-center shadow-xl space-y-3">
+          <div className="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 mx-auto shadow-inner">
+            <Upload className="w-6 h-6" />
+          </div>
+          <div>
+            <h4 className="text-sm font-bold text-white">
+              Silakan Masukkan Foto Master dan Foto Produk (Format JPG Didukung)
+            </h4>
+            <p className="text-xs text-studio-400 max-w-lg mx-auto mt-1 leading-relaxed">
+              Sistem telah siap dan <b>tidak akan melakukan pengecekan sebelum foto Anda dimasukkan</b>. Klik kotak kiri untuk memasukkan foto <b>Master Acuan Kayu (JPG)</b> Anda, dan klik kotak kanan untuk memasukkan foto <b>Produk Studio (JPG)</b> yang ingin diperiksa.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
+            <span className={`px-3 py-1.5 rounded-lg text-xs font-semibold border ${
+              masterImageSrc ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30' : 'bg-studio-900 text-studio-400 border-studio-800'
+            }`}>
+              {masterImageSrc ? `✅ Master Terpasang: ${masterFileName}` : '⏳ 1. Masukkan Foto Master di Kiri'}
+            </span>
+            <span className={`px-3 py-1.5 rounded-lg text-xs font-semibold border ${
+              productImageSrc ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30' : 'bg-studio-900 text-studio-400 border-studio-800'
+            }`}>
+              {productImageSrc ? `✅ Produk Terpasang: ${imageMetadata.fileName}` : '⏳ 2. Masukkan Foto Produk di Kanan'}
+            </span>
+          </div>
         </div>
-        <div className="flex items-center space-x-4">
-          <span>Lensa: <b className="text-studio-200">{imageMetadata.lens}</b></span>
-          <span>ISO: <b className="text-studio-200">{imageMetadata.iso}</b></span>
-          <span>Speed: <b className="text-studio-200">{imageMetadata.shutterSpeed}</b></span>
-          <span>Aperture: <b className="text-studio-200">{imageMetadata.aperture}</b></span>
-          <span>WB: <b className="text-studio-200">{imageMetadata.whiteBalance}</b></span>
-        </div>
-      </div>
+      )}
 
-      {/* Bagian Perbandingan Per Area (ROI) */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold uppercase tracking-wider text-studio-200">
-            Perbandingan Per Area Produk (ROI)
-          </h3>
-          <span className="text-xs text-studio-400">
-            Klik area untuk fokus atau pilih tombol Lolos/Gagal per area
-          </span>
-        </div>
+      {/* Jika kedua foto SUDAH lengkap, tampilkan hasil perbandingan */}
+      {masterImageSrc && productImageSrc && (
+        <>
+          {/* Banner Status Berhasil Dimuat */}
+          <div className="bg-emerald-950/40 border border-emerald-500/30 rounded-xl px-4 py-3 flex flex-wrap items-center justify-between gap-3 shadow-md">
+            <div className="flex items-center space-x-2 text-emerald-300 text-xs font-semibold">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span>Foto Master dan Foto Produk berhasil dimuat! Hasil analisis perbandingan warna dan serat kayu tersaji di bawah:</span>
+            </div>
+            <span className="text-[11px] font-mono text-emerald-400/80 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
+              QC Aktif
+            </span>
+          </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {rois.map((roi) => (
-            <EvidenceCard
-              key={roi.id}
-              roi={roi}
-              measured={roiMeasured[roi.id]}
-              estimated={roiEstimated[roi.id]}
-              unifiedFusion={roiFusion[roi.id]}
-              operatorDecision={roiDecisions[roi.id]}
-              onOperatorDecision={handleRoiDecision}
-              isSelected={selectedRoiId === roi.id}
-              onSelect={() => setSelectedRoiId(roi.id)}
-            />
-          ))}
-        </div>
-      </div>
+          {/* Metadata Pengambilan Gambar (EXIF Studio) */}
+          <div className="bg-studio-900 border border-studio-800 rounded-xl px-4 py-3 text-xs text-studio-400 flex flex-wrap items-center justify-between gap-4 font-mono">
+            <div className="flex items-center space-x-2 text-studio-300">
+              <Camera className="w-4 h-4 text-amber-400" />
+              <span className="font-semibold">{imageMetadata.cameraModel}</span>
+            </div>
+            <div className="flex items-center space-x-4">
+              <span>Lensa: <b className="text-studio-200">{imageMetadata.lens}</b></span>
+              <span>ISO: <b className="text-studio-200">{imageMetadata.iso}</b></span>
+              <span>Speed: <b className="text-studio-200">{imageMetadata.shutterSpeed}</b></span>
+              <span>Aperture: <b className="text-studio-200">{imageMetadata.aperture}</b></span>
+              <span>WB: <b className="text-studio-200">{imageMetadata.whiteBalance}</b></span>
+            </div>
+          </div>
 
-      {/* Panel Rekomendasi Koreksi & Deteksi Konflik */}
-      <CorrectionPanel
-        params={correctionParams}
-        recommended={recommendedCorrection}
-        conflict={correctionConflict}
-        onChangeParams={setCorrectionParams}
-        onApplyRecommended={() => setCorrectionParams(recommendedCorrection)}
-        onReset={() =>
-          setCorrectionParams({
-            temperatureK: 0,
-            tint: 0,
-            exposureEV: 0,
-            brightness: 0,
-            contrast: 0,
-            saturation: 0,
-          })
-        }
-        isPreviewing={isPreviewingCorrection}
-        onTogglePreview={() => setIsPreviewingCorrection(!isPreviewingCorrection)}
-        onExportJpeg={handleExportJpeg}
-      />
+          {/* Bagian Perbandingan Per Area (ROI) */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-studio-200">
+                Perbandingan Per Area Produk (ROI)
+              </h3>
+              <span className="text-xs text-studio-400">
+                Klik area untuk fokus atau pilih tombol Lolos/Gagal per area
+              </span>
+            </div>
 
-      {/* Panel Keputusan Akhir Produk (FINAL PRODUCT DECISION - REQ-QC-002) */}
-      <div className="bg-gradient-to-r from-studio-900 via-studio-850 to-studio-900 border border-studio-800 rounded-xl p-6 flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl">
-        <div>
-          <div className="flex items-center space-x-2">
-            <h3 className="text-base font-bold text-white">
-              Keputusan Akhir Produk (Operator Authority)
-            </h3>
-            {productDecision && (
-              <span
-                className={`font-mono text-xs font-bold px-2.5 py-0.5 rounded-full ${
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {rois.map((roi) => (
+                <EvidenceCard
+                  key={roi.id}
+                  roi={roi}
+                  measured={roiMeasured[roi.id]}
+                  estimated={roiEstimated[roi.id]}
+                  unifiedFusion={roiFusion[roi.id]}
+                  operatorDecision={roiDecisions[roi.id]}
+                  onOperatorDecision={handleRoiDecision}
+                  isSelected={selectedRoiId === roi.id}
+                  onSelect={() => setSelectedRoiId(roi.id)}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* Panel Rekomendasi Koreksi & Deteksi Konflik */}
+          <CorrectionPanel
+            params={correctionParams}
+            recommended={recommendedCorrection}
+            conflict={correctionConflict}
+            onChangeParams={setCorrectionParams}
+            onApplyRecommended={() => setCorrectionParams(recommendedCorrection)}
+            onReset={() =>
+              setCorrectionParams({
+                temperatureK: 0,
+                tint: 0,
+                exposureEV: 0,
+                brightness: 0,
+                contrast: 0,
+                saturation: 0,
+              })
+            }
+            isPreviewing={isPreviewingCorrection}
+            onTogglePreview={() => setIsPreviewingCorrection(!isPreviewingCorrection)}
+            onExportJpeg={handleExportJpeg}
+          />
+
+          {/* Panel Keputusan Akhir Produk (FINAL PRODUCT DECISION - REQ-QC-002) */}
+          <div className="bg-gradient-to-r from-studio-900 via-studio-850 to-studio-900 border border-studio-800 rounded-xl p-6 flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl">
+            <div>
+              <div className="flex items-center space-x-2">
+                <h3 className="text-base font-bold text-white">
+                  Keputusan Akhir Produk (Operator Authority)
+                </h3>
+                {productDecision && (
+                  <span
+                    className={`font-mono text-xs font-bold px-2.5 py-0.5 rounded-full ${
+                      productDecision === 'PASS'
+                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                        : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                    }`}
+                  >
+                    STATUS: {productDecision}
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-studio-400 mt-1 max-w-xl leading-relaxed">
+                Sesuai prinsip sistem (INV-003), rekomendasi sistem bukan penentu mutlak. Operator menentukan apakah produk ini lolos QC studio secara keseluruhan atau memerlukan perbaikan/pemotretan ulang.
+              </p>
+            </div>
+
+            {/* Tombol Keputusan Akhir */}
+            <div className="flex items-center space-x-3 shrink-0">
+              <button
+                onClick={() => handleProductDecision('PASS')}
+                className={`px-6 py-3 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all shadow-lg ${
                   productDecision === 'PASS'
-                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                    : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                    ? 'bg-emerald-500 text-black shadow-emerald-500/30 scale-105'
+                    : 'bg-studio-800 text-studio-200 hover:bg-emerald-600 hover:text-white border border-studio-700'
                 }`}
               >
-                STATUS: {productDecision}
-              </span>
-            )}
+                <Check className="w-4 h-4 stroke-[3]" />
+                PASS (PRODUK LOLOS)
+              </button>
+
+              <button
+                onClick={() => handleProductDecision('FAIL')}
+                className={`px-6 py-3 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all shadow-lg ${
+                  productDecision === 'FAIL'
+                    ? 'bg-rose-600 text-white shadow-rose-600/30 scale-105'
+                    : 'bg-studio-800 text-studio-200 hover:bg-rose-600 hover:text-white border border-studio-700'
+                }`}
+              >
+                <X className="w-4 h-4 stroke-[3]" />
+                FAIL (PRODUK GAGAL)
+              </button>
+            </div>
           </div>
-          <p className="text-xs text-studio-400 mt-1 max-w-xl leading-relaxed">
-            Sesuai prinsip sistem (INV-003), rekomendasi sistem bukan penentu mutlak. Operator menentukan apakah produk ini lolos QC studio secara keseluruhan atau memerlukan perbaikan/pemotretan ulang.
-          </p>
-        </div>
-
-        {/* Tombol Keputusan Akhir */}
-        <div className="flex items-center space-x-3 shrink-0">
-          <button
-            onClick={() => handleProductDecision('PASS')}
-            className={`px-6 py-3 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all shadow-lg ${
-              productDecision === 'PASS'
-                ? 'bg-emerald-500 text-black shadow-emerald-500/30 scale-105'
-                : 'bg-studio-800 text-studio-200 hover:bg-emerald-600 hover:text-white border border-studio-700'
-            }`}
-          >
-            <Check className="w-4 h-4 stroke-[3]" />
-            PASS (PRODUK LOLOS)
-          </button>
-
-          <button
-            onClick={() => handleProductDecision('FAIL')}
-            className={`px-6 py-3 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all shadow-lg ${
-              productDecision === 'FAIL'
-                ? 'bg-rose-600 text-white shadow-rose-600/30 scale-105'
-                : 'bg-studio-800 text-studio-200 hover:bg-rose-600 hover:text-white border border-studio-700'
-            }`}
-          >
-            <X className="w-4 h-4 stroke-[3]" />
-            FAIL (PRODUK GAGAL)
-          </button>
-        </div>
-      </div>
+        </>
+      )}
 
       {/* Modal Dialog Alasan FAIL */}
       <DecisionModal
