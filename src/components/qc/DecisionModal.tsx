@@ -48,7 +48,7 @@ export const DecisionModal: React.FC<DecisionModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-studio-900 border border-studio-800 rounded-xl max-w-2xl w-full p-6 md:p-8 shadow-2xl space-y-4">
+      <div className="bg-studio-900 border border-studio-800 rounded-xl max-w-md w-full p-6 shadow-2xl space-y-4">
         {/* Header Modal */}
         <div className="flex items-start justify-between border-b border-studio-800 pb-3">
           <div>
@@ -73,7 +73,7 @@ export const DecisionModal: React.FC<DecisionModalProps> = ({
         </p>
 
         {/* Daftar Pilihan Alasan Terstruktur (REQ-FAIL-001) */}
-        <div className="space-y-3 max-h-[50vh] overflow-y-auto pr-2">
+        <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
           {FAIL_REASONS.map((reason) => {
             const isChecked = selectedReasons.includes(reason);
             return (
@@ -87,7 +87,7 @@ export const DecisionModal: React.FC<DecisionModalProps> = ({
                 }`}
               >
                 <div
-                  className={`w-6 h-6 rounded border-2 flex items-center justify-center transition shrink-0 ${
+                  className={`w-4 h-4 rounded border flex items-center justify-center transition shrink-0 ${
                     isChecked ? 'border-rose-500 bg-rose-500 text-white' : 'border-studio-700 bg-studio-900'
                   }`}
                 >
@@ -108,7 +108,7 @@ export const DecisionModal: React.FC<DecisionModalProps> = ({
             value={note}
             onChange={(e) => setNote(e.target.value)}
             placeholder="Contoh: Perbedaan terlihat jelas pada bagian sambungan bawah dekat kaki kursi..."
-            rows={4}
+            rows={2}
             className="w-full bg-studio-950 border border-studio-800 rounded-lg p-2.5 text-xs text-studio-100 placeholder:text-studio-600 focus:outline-none focus:border-rose-500"
           />
         </div>

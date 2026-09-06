@@ -96,7 +96,7 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div className="operator-readable min-h-screen bg-studio-950 text-studio-100 flex flex-col font-sans">
+    <div className="min-h-screen bg-studio-950 text-studio-100 flex flex-col font-sans">
       {/* Header Bar */}
       <Header
         currentMaster={currentMaster}
@@ -106,7 +106,7 @@ export const App: React.FC = () => {
       />
 
       {/* Main Content Area */}
-      <main className="flex-1 px-4 md:px-8 pt-6 md:pt-8">
+      <main className="flex-1 px-6 pt-6">
         <MainQCScreen
           currentMaster={currentMaster}
           onSaveQCRecord={handleSaveQCRecord}
@@ -137,7 +137,7 @@ export const App: React.FC = () => {
       {/* Toast Notification Sederhana */}
       {toastMessage && (
         <div
-          className={`fixed bottom-6 right-6 z-50 bg-studio-900 text-base font-semibold px-5 py-4 rounded-xl shadow-2xl flex items-center gap-2 ${
+          className={`fixed bottom-6 right-6 z-50 bg-studio-900 text-xs font-medium px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2 ${
             toastKind === 'error'
               ? 'border border-rose-500/50 text-rose-300'
               : 'border border-emerald-500/40 text-emerald-300'

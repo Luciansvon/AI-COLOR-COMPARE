@@ -62,7 +62,7 @@ export const MasterLibraryModal: React.FC<MasterLibraryModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-studio-900 border border-studio-800 rounded-xl max-w-3xl w-full p-6 md:p-8 shadow-2xl space-y-4">
+      <div className="bg-studio-900 border border-studio-800 rounded-xl max-w-xl w-full p-6 shadow-2xl space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-studio-800 pb-3">
           <div className="flex items-center space-x-2">
@@ -95,7 +95,7 @@ export const MasterLibraryModal: React.FC<MasterLibraryModalProps> = ({
             <div className="text-xs font-semibold text-amber-300 uppercase tracking-wider">
               Tambah Identitas Master Fisik Baru
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-[11px] text-studio-400 block mb-1">Kode Master (Contoh: WN-05)</label>
                 <input
@@ -120,7 +120,7 @@ export const MasterLibraryModal: React.FC<MasterLibraryModalProps> = ({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-[11px] text-studio-400 block mb-1">Toleransi Selisih (ΔE₀₀)</label>
                 <input

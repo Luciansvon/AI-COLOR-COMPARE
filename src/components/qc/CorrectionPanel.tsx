@@ -40,13 +40,13 @@ export const CorrectionPanel: React.FC<CorrectionPanelProps> = ({
   return (
     <div className="bg-studio-900 border border-studio-800 rounded-xl p-5 shadow-lg space-y-4">
       {/* Header Panel Koreksi */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-studio-800 pb-4">
+      <div className="flex items-center justify-between border-b border-studio-800 pb-3">
         <div className="flex items-center space-x-2">
           <div className="p-1.5 rounded-lg bg-amber-500/10 text-amber-400">
             <Sliders className="w-4 h-4" />
           </div>
           <div>
-            <h3 className="text-2xl font-bold text-white">Rekomendasi Koreksi Warna</h3>
+            <h3 className="text-sm font-semibold text-white">Rekomendasi Koreksi Warna</h3>
             <p className="text-xs text-studio-400">
               Penyesuaian non-destruktif untuk mendekatkan foto ke master panel
             </p>
@@ -113,7 +113,7 @@ export const CorrectionPanel: React.FC<CorrectionPanelProps> = ({
       )}
 
       {/* Kontrol Slider Manual */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 pt-2">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-1">
         {/* Suhu Warna (Temperature) */}
         <div className="space-y-1.5">
           <div className="flex justify-between text-xs">
@@ -185,7 +185,7 @@ export const CorrectionPanel: React.FC<CorrectionPanelProps> = ({
       </div>
 
       {/* Tombol Ekspor JPEG Non-Destruktif (REQ-EXPORT-001 s/d REQ-EXPORT-005) */}
-      <div className="pt-4 border-t border-studio-800 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+      <div className="pt-2 border-t border-studio-800 flex items-center justify-between">
         <div className="text-[11px] text-studio-400">
           <span className="font-medium text-studio-300">Prinsip Keaslian:</span> Berkas asli (RAW/JPEG) kamera tidak akan pernah disentuh atau ditimpa. Ekspor akan menghasilkan berkas JPEG sRGB baru yang bersih.
         </div>

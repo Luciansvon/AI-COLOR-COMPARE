@@ -557,7 +557,7 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
   };
 
   return (
-    <div className="space-y-8 max-w-[1600px] mx-auto pb-16">
+    <div className="space-y-6 max-w-7xl mx-auto pb-12">
       {/* Pilihan Mode Kerja: Mode Uji Foto Sendiri (Default) vs Mode Demo Simulasi */}
       <div className="bg-studio-900 border border-studio-800 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4 shadow-md">
         <div className="flex items-center space-x-2">
@@ -719,14 +719,14 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
         <div className="flex flex-col md:flex-row items-center justify-between gap-3">
           {/* Langkah 1 */}
           <div
-            className={`flex items-center space-x-3 w-full md:w-1/3 p-4 min-h-24 rounded-xl border transition-all ${
+            className={`flex items-center space-x-3 w-full md:w-1/3 p-3 rounded-xl border transition-all ${
               masterImageSrc && productImageSrc
                 ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
                 : 'bg-studio-950/60 border-amber-500/40 text-amber-300'
             }`}
           >
             <div
-              className={`w-10 h-10 rounded-full flex items-center justify-center font-extrabold text-lg shrink-0 ${
+              className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
                 masterImageSrc && productImageSrc
                   ? 'bg-emerald-500 text-black'
                   : 'bg-amber-500 text-black'
@@ -735,10 +735,10 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
               {masterImageSrc && productImageSrc ? '✓' : '1'}
             </div>
             <div className="min-w-0">
-              <div className="text-base uppercase tracking-wide font-bold opacity-90">
+              <div className="text-[10px] uppercase tracking-wider font-semibold opacity-75">
                 Langkah 1
               </div>
-              <div className="text-lg font-bold leading-snug">
+              <div className="text-xs font-bold truncate">
                 {masterImageSrc && productImageSrc
                   ? 'Foto Siap (Master & Produk)'
                   : 'Masukkan Dua Foto (Kiri & Kanan)'}
@@ -752,7 +752,7 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
 
           {/* Langkah 2 */}
           <div
-            className={`flex items-center space-x-3 w-full md:w-1/3 p-4 min-h-24 rounded-xl border transition-all ${
+            className={`flex items-center space-x-3 w-full md:w-1/3 p-3 rounded-xl border transition-all ${
               comparisonStatus === 'completed'
                 ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
                 : comparisonStatus === 'ready'
@@ -763,7 +763,7 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
             }`}
           >
             <div
-              className={`w-10 h-10 rounded-full flex items-center justify-center font-extrabold text-lg shrink-0 ${
+              className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
                 comparisonStatus === 'completed'
                   ? 'bg-emerald-500 text-black'
                   : comparisonStatus === 'ready'
@@ -774,10 +774,10 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
               {comparisonStatus === 'completed' ? '✓' : '2'}
             </div>
             <div className="min-w-0">
-              <div className="text-base uppercase tracking-wide font-bold opacity-90">
+              <div className="text-[10px] uppercase tracking-wider font-semibold opacity-75">
                 Langkah 2
               </div>
-              <div className="text-lg font-bold leading-snug">
+              <div className="text-xs font-bold truncate">
                 {comparisonStatus === 'completed'
                   ? 'Selesai Dibandingkan'
                   : comparisonStatus === 'analyzing'
@@ -795,7 +795,7 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
 
           {/* Langkah 3 */}
           <div
-            className={`flex items-center space-x-3 w-full md:w-1/3 p-4 min-h-24 rounded-xl border transition-all ${
+            className={`flex items-center space-x-3 w-full md:w-1/3 p-3 rounded-xl border transition-all ${
               productDecision
                 ? productDecision === 'PASS'
                   ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300'
@@ -806,7 +806,7 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
             }`}
           >
             <div
-              className={`w-10 h-10 rounded-full flex items-center justify-center font-extrabold text-lg shrink-0 ${
+              className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
                 productDecision
                   ? productDecision === 'PASS'
                     ? 'bg-emerald-500 text-black'
@@ -817,10 +817,10 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
               {productDecision ? '✓' : '3'}
             </div>
             <div className="min-w-0">
-              <div className="text-base uppercase tracking-wide font-bold opacity-90">
+              <div className="text-[10px] uppercase tracking-wider font-semibold opacity-75">
                 Langkah 3
               </div>
-              <div className="text-lg font-bold leading-snug">
+              <div className="text-xs font-bold truncate">
                 {productDecision
                   ? `Keputusan: ${productDecision === 'PASS' ? 'Lolos (PASS)' : 'Gagal (FAIL)'}`
                   : comparisonStatus === 'completed'
@@ -1066,7 +1066,7 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
           {/* Bagian Perbandingan Per Area (ROI) */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="text-2xl font-bold text-white">
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-studio-200">
                 Perbandingan Per Area Produk (ROI)
               </h3>
               <span className="text-xs text-studio-400">
@@ -1076,7 +1076,7 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
               </span>
             </div>
 
-            <div className={rois.length === 1 ? 'w-full' : 'grid grid-cols-1 xl:grid-cols-2 gap-6'}>
+            <div className={rois.length === 1 ? 'w-full' : 'grid grid-cols-1 md:grid-cols-3 gap-4'}>
               {rois.map((roi) => (
                 <EvidenceCard
                   key={roi.id}
@@ -1118,8 +1118,8 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
           <div className="bg-gradient-to-r from-studio-900 via-studio-850 to-studio-900 border border-studio-800 rounded-xl p-6 flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl">
             <div>
               <div className="flex items-center space-x-2">
-                <h3 className="text-2xl font-extrabold text-white">
-                  Keputusan Akhir Produk
+                <h3 className="text-base font-bold text-white">
+                  Keputusan Akhir Produk (Operator Authority)
                 </h3>
                 {productDecision && (
                   <span
@@ -1133,7 +1133,7 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
                   </span>
                 )}
               </div>
-              <p className="text-base text-studio-300 mt-2 max-w-3xl leading-relaxed">
+              <p className="text-xs text-studio-400 mt-1 max-w-xl leading-relaxed">
                 Sesuai prinsip sistem (INV-003), rekomendasi sistem bukan penentu mutlak. Operator menentukan apakah produk ini lolos QC studio secara keseluruhan atau memerlukan perbaikan/pemotretan ulang.
               </p>
             </div>
@@ -1141,9 +1141,8 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
             {/* Tombol Keputusan Akhir */}
             <div className="flex items-center space-x-3 shrink-0">
               <button
-                id="btn-final-pass"
                 onClick={() => handleProductDecision('PASS')}
-                className={`px-8 py-4 rounded-xl text-lg font-extrabold uppercase tracking-wide flex items-center gap-3 transition-all shadow-lg ${
+                className={`px-6 py-3 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all shadow-lg ${
                   productDecision === 'PASS'
                     ? 'bg-emerald-500 text-black shadow-emerald-500/30 scale-105'
                     : 'bg-studio-800 text-studio-200 hover:bg-emerald-600 hover:text-white border border-studio-700'
@@ -1154,9 +1153,8 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
               </button>
 
               <button
-                id="btn-final-fail"
                 onClick={() => handleProductDecision('FAIL')}
-                className={`px-8 py-4 rounded-xl text-lg font-extrabold uppercase tracking-wide flex items-center gap-3 transition-all shadow-lg ${
+                className={`px-6 py-3 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all shadow-lg ${
                   productDecision === 'FAIL'
                     ? 'bg-rose-600 text-white shadow-rose-600/30 scale-105'
                     : 'bg-studio-800 text-studio-200 hover:bg-rose-600 hover:text-white border border-studio-700'
