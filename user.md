@@ -12,6 +12,7 @@
   - **Tata Letak Perbandingan Visual & Swatch Warna**: Bima menyukai kartu perbandingan yang lapang dan proporsional (melebar penuh jika mode 1 area), menampilkan kotak sampel warna visual (*swatch*) Master vs Produk berdampingan agar perbedaannya bisa dilihat kasat mata tanpa menebak angka, serta menghindari tombol keputusan ganda (tombol keputusan akhir cukup satu di panel bawah).
   - **Interaksi Foto (Perbesar Gambar & Pilih Area Mandiri)**: Bima membutuhkan fitur memperbesar gambar (*zoom in/out* & *pan*) untuk melihat pori dan serat kayu secara mendalam, serta kebebasan memilih/menggeser area kotak pindai (*interactive ROI box*) agar pengukuran warna dan serat kayu menjadi sangat akurat sesuai bagian furnitur yang diinginkan.
   - **Ekspektasi Sampel Dinamis (*Live Dynamic Swatch*)**: Bima ingin kepastian bahwa kotak sampel warna (*swatch*) dan angka diagnosanya benar-benar berubah secara dinamis mengikuti objek yang diarahkan oleh kotak seleksi.
+  - **Konsistensi Pemilihan Area Master & Produk**: Bima mengharapkan foto Master acuan juga bisa dipilih dan digeser areanya (*selectable ROI*) sama persis seperti foto produk, agar operator bisa memilih bagian papan master yang paling bersih atau menghindari stiker label/tepi papan yang terpotong.
 
 ## Prinsip Kerja Bersama
 - **Jangan Auto-Approve Plan**: Setiap perencanaan (plan) harus disajikan untuk ditinjau dan disetujui Bima terlebih dahulu.

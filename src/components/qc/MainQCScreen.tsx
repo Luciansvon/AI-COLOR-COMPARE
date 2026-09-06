@@ -89,6 +89,15 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
   const [roiPreset, setRoiPreset] = useState<'center' | 'multi' | 'full' | 'custom'>('center');
   const [rois, setRois] = useState<ROIItem[]>(ROI_PRESETS.center);
   const [selectedRoiId, setSelectedRoiId] = useState<string>('roi-center');
+  const [masterRoiBox, setMasterRoiBox] = useState<ROIBox>({ x: 25, y: 25, width: 50, height: 50 });
+  const masterRois: ROIItem[] = [
+    {
+      id: 'roi-master-ref',
+      name: 'Area Acuan Master',
+      role: 'master_backed',
+      box: masterRoiBox,
+    },
+  ];
   const [roiMeasured, setRoiMeasured] = useState<Record<string, MeasuredEvidence>>({});
   const [roiEstimated, setRoiEstimated] = useState<Record<string, EstimatedRecommendation>>({});
   const [roiFusion, setRoiFusion] = useState<Record<string, UnifiedMaterialReport>>({});
@@ -185,6 +194,14 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
     }
   };
 
+  // Handler saat pengguna menggeser atau mengubah ukuran kotak area foto master
+  const handleUpdateMasterRoiBox = (newBox: ROIBox, isFinal: boolean = true) => {
+    setMasterRoiBox(newBox);
+    if (isFinal && comparisonStatus === 'completed' && masterImageSrc && productImageSrc) {
+      executeComparison(masterImageSrc, productImageSrc, rois, true, newBox);
+    }
+  };
+
   const handleMasterUpload = (file: File) => {
     const reader = new FileReader();
     reader.onload = (event) => {
@@ -225,11 +242,13 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
     overrideMaster?: string,
     overrideProduct?: string,
     overrideRois?: ROIItem[],
-    silentUpdate: boolean = false
+    silentUpdate: boolean = false,
+    overrideMasterBox?: ROIBox
   ) => {
     const mSrc = overrideMaster || masterImageSrc;
     const pSrc = overrideProduct || productImageSrc;
     const activeRois = overrideRois || rois;
+    const activeMasterBox = overrideMasterBox || masterRoiBox;
 
     if (!mSrc || !pSrc) return;
 
@@ -244,13 +263,8 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
       const estimatedMap: Record<string, EstimatedRecommendation> = {};
       const fusionMap: Record<string, UnifiedMaterialReport> = {};
 
-      // Ambil piksel dan statistik master panel (area tengah papan master)
-      const masterExtract = await extractPixelsFromImageROI(mSrc, {
-        x: 25,
-        y: 25,
-        width: 50,
-        height: 50,
-      });
+      // Ambil piksel dan statistik master panel dari area yang dipilih (activeMasterBox)
+      const masterExtract = await extractPixelsFromImageROI(mSrc, activeMasterBox);
 
       for (const roi of activeRois) {
         const prodExtract = await extractPixelsFromImageROI(pSrc, roi.box);
@@ -816,7 +830,10 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
           subtitle={masterFileName ? `Berkas: ${masterFileName}` : 'Langkah 1: Klik kotak ini untuk memilih foto sampel master kayu (JPG/RAW)'}
           imageSrc={masterImageSrc}
           isMaster={true}
-          isEditableRoi={false}
+          rois={masterRois}
+          selectedRoiId="roi-master-ref"
+          onUpdateRoiBox={(_, newBox, isFinal) => handleUpdateMasterRoiBox(newBox, isFinal)}
+          isEditableRoi={true}
           onUploadImage={handleMasterUpload}
           uploadButtonText="Pilih / Unggah Foto Master Kayu (JPG / RAW)"
         />
