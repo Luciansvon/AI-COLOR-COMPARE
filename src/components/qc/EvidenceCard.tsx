@@ -40,7 +40,7 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
   return (
     <div
       onClick={onSelect}
-      className={`border rounded-2xl p-5 md:p-6 transition-all cursor-pointer ${
+      className={`border rounded-2xl p-5 md:p-6 transition-all cursor-pointer overflow-hidden relative ${
         isSelected
           ? 'border-amber-500/80 bg-studio-900 ring-2 ring-amber-500/20 shadow-2xl'
           : 'border-studio-800 bg-studio-900/70 hover:bg-studio-900/90'
@@ -379,7 +379,7 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
 
       {/* 3. Peta Petak Serat Kayu AI (AnomalyDINO / PatchCore Heatmap Grid) */}
       {!isNoMaster && unifiedFusion?.patchAnomaly && unifiedFusion.patchAnomaly.heatmapGrid.length > 0 && (
-        <div className="bg-studio-950/90 p-4 rounded-xl border border-studio-800/80 mb-5 space-y-3">
+        <div className="bg-studio-950/90 p-4 rounded-xl border border-studio-800/80 mb-5 space-y-3 overflow-hidden">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-studio-800/60 pb-2.5">
             <div className="flex items-center space-x-2">
               <div className="p-1 rounded bg-amber-500/10 text-amber-400">
@@ -412,34 +412,40 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
           </div>
 
           {/* Grid Visualisasi Petak & Keterangan */}
-          <div className="flex flex-col sm:flex-row items-center gap-4 pt-1">
+          <div className="flex flex-col md:flex-row items-center gap-5 pt-1">
             {/* Tampilan Kotak-Kotak Petak */}
-            <div className="bg-studio-900/90 p-2 rounded-lg border border-studio-800/60 inline-flex flex-col gap-1 shadow-inner shrink-0">
-              {unifiedFusion.patchAnomaly.heatmapGrid.map((row, rIdx) => (
-                <div key={`row-${rIdx}`} className="flex gap-1">
-                  {row.map((score, cIdx) => {
-                    const isIdentical = score < 0.25;
-                    const isNaturalVariation = score >= 0.25 && score <= 0.45;
-                    const isDefect = score > 0.45;
+            <div className="bg-studio-900/90 p-2.5 rounded-xl border border-studio-800/60 flex flex-col gap-1 shadow-inner max-w-full overflow-hidden shrink-0">
+              {unifiedFusion.patchAnomaly.heatmapGrid.map((row, rIdx) => {
+                const maxCols = Math.max(row.length, 1);
+                // Ukuran dinamis per petak: jika 9 kolom -> 20px (w-5 h-5), jika lebih lebar -> mengecil otomatis agar selalu pas dalam wadah
+                const cellSize = Math.max(10, Math.min(20, Math.floor(220 / maxCols)));
+                return (
+                  <div key={`row-${rIdx}`} className="flex gap-1 justify-center">
+                    {row.map((score, cIdx) => {
+                      const isIdentical = score < 0.25;
+                      const isNaturalVariation = score >= 0.25 && score <= 0.45;
+                      const isDefect = score > 0.45;
 
-                    return (
-                      <div
-                        key={`cell-${rIdx}-${cIdx}`}
-                        title={`Petak [Baris ${rIdx + 1}, Kolom ${cIdx + 1}]: Skor Selisih ${(score * 100).toFixed(0)}%`}
-                        className={`w-5 h-5 rounded transition-transform hover:scale-125 cursor-help flex items-center justify-center text-[9px] font-mono font-bold ${
-                          isIdentical
-                            ? 'bg-emerald-500/70 text-emerald-100 border border-emerald-400/40'
-                            : isNaturalVariation
-                            ? 'bg-amber-500/70 text-amber-100 border border-amber-400/40'
-                            : 'bg-rose-500/80 text-rose-100 border border-rose-400/50 animate-pulse'
-                        }`}
-                      >
-                        {isDefect ? '!' : ''}
-                      </div>
-                    );
-                  })}
-                </div>
-              ))}
+                      return (
+                        <div
+                          key={`cell-${rIdx}-${cIdx}`}
+                          title={`Petak [Baris ${rIdx + 1}, Kolom ${cIdx + 1}]: Skor Selisih ${(score * 100).toFixed(0)}%`}
+                          style={{ width: `${cellSize}px`, height: `${cellSize}px` }}
+                          className={`rounded transition-transform hover:scale-125 cursor-help flex items-center justify-center text-[9px] font-mono font-bold shrink-0 ${
+                            isIdentical
+                              ? 'bg-emerald-500/70 text-emerald-100 border border-emerald-400/40'
+                              : isNaturalVariation
+                              ? 'bg-amber-500/70 text-amber-100 border border-amber-400/40'
+                              : 'bg-rose-500/80 text-rose-100 border border-rose-400/50 animate-pulse'
+                          }`}
+                        >
+                          {isDefect ? '!' : ''}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
             </div>
 
             {/* Keterangan Warna Ramah Pengguna Studio */}

@@ -60,18 +60,34 @@ export function extractPatchDescriptors(
   width: number,
   height: number,
   patchSize: number = 16,
-  stride: number = 16
+  stride: number = 16,
+  maxCols: number = 9,
+  maxRows: number = 9
 ): PatchDescriptor[] {
   const descriptors: PatchDescriptor[] = [];
   if (width < patchSize || height < patchSize) return descriptors;
 
-  const cols = Math.floor((width - patchSize) / stride) + 1;
-  const rows = Math.floor((height - patchSize) / stride) + 1;
+  // Hitung langkah horizontal dan vertikal agar grid tidak meledak melampaui maxCols dan maxRows
+  let actualStrideX = stride;
+  let actualStrideY = stride;
+
+  const rawCols = Math.floor((width - patchSize) / stride) + 1;
+  const rawRows = Math.floor((height - patchSize) / stride) + 1;
+
+  if (rawCols > maxCols && maxCols > 1) {
+    actualStrideX = Math.max(stride, Math.floor((width - patchSize) / (maxCols - 1)));
+  }
+  if (rawRows > maxRows && maxRows > 1) {
+    actualStrideY = Math.max(stride, Math.floor((height - patchSize) / (maxRows - 1)));
+  }
+
+  const cols = Math.floor((width - patchSize) / actualStrideX) + 1;
+  const rows = Math.floor((height - patchSize) / actualStrideY) + 1;
 
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
-      const startX = c * stride;
-      const startY = r * stride;
+      const startX = c * actualStrideX;
+      const startY = r * actualStrideY;
 
       // Fitur patch:
       // - 16 bin intensitas lokal
@@ -171,9 +187,11 @@ export function buildMasterMemoryBank(
   width: number,
   height: number,
   patchSize: number = 16,
-  stride: number = 8 // Stride lebih rapat untuk memperkaya bank memori master
+  stride: number = 8, // Stride lebih rapat untuk memperkaya bank memori master
+  maxCols: number = 12,
+  maxRows: number = 12
 ): MasterMemoryBank {
-  const descriptors = extractPatchDescriptors(gray, width, height, patchSize, stride);
+  const descriptors = extractPatchDescriptors(gray, width, height, patchSize, stride, maxCols, maxRows);
   return {
     masterCode,
     descriptors,
@@ -193,9 +211,11 @@ export function detectPatchAnomalies(
   height: number,
   masterBank: MasterMemoryBank,
   patchSize: number = 16,
-  stride: number = 16
+  stride: number = 16,
+  maxCols: number = 9,
+  maxRows: number = 9
 ): PatchAnomalyResult {
-  const prodDescriptors = extractPatchDescriptors(prodGray, width, height, patchSize, stride);
+  const prodDescriptors = extractPatchDescriptors(prodGray, width, height, patchSize, stride, maxCols, maxRows);
 
   if (prodDescriptors.length === 0 || masterBank.descriptors.length === 0) {
     return {
@@ -209,8 +229,20 @@ export function detectPatchAnomalies(
     };
   }
 
-  const cols = Math.floor((width - patchSize) / stride) + 1;
-  const rows = Math.floor((height - patchSize) / stride) + 1;
+  let actualStrideX = stride;
+  let actualStrideY = stride;
+  const rawCols = Math.floor((width - patchSize) / stride) + 1;
+  const rawRows = Math.floor((height - patchSize) / stride) + 1;
+
+  if (rawCols > maxCols && maxCols > 1) {
+    actualStrideX = Math.max(stride, Math.floor((width - patchSize) / (maxCols - 1)));
+  }
+  if (rawRows > maxRows && maxRows > 1) {
+    actualStrideY = Math.max(stride, Math.floor((height - patchSize) / (maxRows - 1)));
+  }
+
+  const cols = Math.floor((width - patchSize) / actualStrideX) + 1;
+  const rows = Math.floor((height - patchSize) / actualStrideY) + 1;
   const heatmapGrid: number[][] = Array.from({ length: rows }, () => new Array(cols).fill(0));
 
   let maxDistance = 0;
