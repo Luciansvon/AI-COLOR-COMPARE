@@ -25,5 +25,8 @@
     1. **AnomalyDINO + DINOv2-S**: Membandingkan serat kayu per petak kecil (*patch*) terhadap memori papan master fisik secara *one-shot* di CPU, bukan sekadar skor kemiripan global.
     2. **DISTS**: Mengukur kemiripan struktur dan tekstur permukaan yang kebal terhadap sedikit pergeseran sudut atau pantulan lampu.
     3. **Memori Per Master**: Bank referensi dipisah per kode master (misal WN-04 punya bank memori sendiri) agar variasi alami urat kayu tidak dianggap cacat.
-  - Komputer target: Windows CPU-only (RAM 8 GB), tanpa perlu Python/PyTorch di komputer studio (Tauri + Rust + ONNX Runtime).
-- **Dokumentasi Terkait**: Berkas `TECH_STACK.md` telah diperbarui dengan riset komunitas 50+ sumber dan peringkat model yang jelas.
+- **Status Implementasi Terkini**:
+  - **Fase P0 (Selesai 100%)**: Sains warna deterministik, proteksi berkas kamera non-destruktif (SHA-256 identik), ekspor atomik, dan database SQLite lokal.
+  - **Fase P1 (Selesai 100%)**: Kecerdasan tekstur LBP (invarian terhadap lampu), deteksi sudut serat kayu Sobel, penggabungan bukti (Evidence Fusion), Patch Memory Bank (AnomalyDINO / nearest-neighbor) per kode master fisik, serta antarmuka ramah pengguna studio tanpa rumus rumit.
+  - **Biner Windows**: `src-tauri/target/release/studio-color-qc.exe` (9.7 MB) siap dijalankan mandiri di PC Windows studio.
+  - **GitHub Remote**: Tersinkronisasi penuh di branch `main` repositori `https://github.com/Luciansvon/AI-COLOR-COMPARE`.
