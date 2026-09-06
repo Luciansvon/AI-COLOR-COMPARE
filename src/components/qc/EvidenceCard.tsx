@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ROIItem, MeasuredEvidence, EstimatedRecommendation, UnifiedMaterialReport } from '../../types';
-import { CheckCircle2, AlertTriangle, XCircle, Info, ChevronDown, ChevronUp, ShieldAlert, Sparkles, Compass, ArrowRight, BarChart3 } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, XCircle, Info, ChevronDown, ChevronUp, ShieldAlert, Sparkles, Compass, ArrowRight, BarChart3, Layers, Scan } from 'lucide-react';
 
 interface EvidenceCardProps {
   roi: ROIItem;
@@ -371,6 +371,97 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
                 <span className="font-bold font-mono text-studio-200">
                   {unifiedFusion ? `${unifiedFusion.grainAngleDiffDeg}° (${unifiedFusion.grainAngleDiffDeg <= 20 ? 'Searah' : 'Miring'})` : 'Searah'}
                 </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 3. Peta Petak Serat Kayu AI (AnomalyDINO / PatchCore Heatmap Grid) */}
+      {!isNoMaster && unifiedFusion?.patchAnomaly && unifiedFusion.patchAnomaly.heatmapGrid.length > 0 && (
+        <div className="bg-studio-950/90 p-4 rounded-xl border border-studio-800/80 mb-5 space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-studio-800/60 pb-2.5">
+            <div className="flex items-center space-x-2">
+              <div className="p-1 rounded bg-amber-500/10 text-amber-400">
+                <Layers className="w-4 h-4" />
+              </div>
+              <div>
+                <span className="text-xs font-bold text-white tracking-wide">
+                  Peta Petak Serat Kayu AI (AnomalyDINO)
+                </span>
+                <span className="text-[10px] text-studio-400 block font-normal">
+                  Pemeriksaan pori & serat kayu per petak mikro terhadap master fisik
+                </span>
+              </div>
+            </div>
+
+            {/* Status Keseluruhan Petak */}
+            <div className="flex items-center space-x-2">
+              <span
+                className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border ${
+                  !unifiedFusion.patchAnomaly.isAnomalous
+                    ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                    : 'bg-rose-500/15 text-rose-300 border-rose-500/30'
+                }`}
+              >
+                {!unifiedFusion.patchAnomaly.isAnomalous
+                  ? '✅ Semua Petak Cocok'
+                  : '⚠️ Ada Petak Berbeda'}
+              </span>
+            </div>
+          </div>
+
+          {/* Grid Visualisasi Petak & Keterangan */}
+          <div className="flex flex-col sm:flex-row items-center gap-4 pt-1">
+            {/* Tampilan Kotak-Kotak Petak */}
+            <div className="bg-studio-900/90 p-2 rounded-lg border border-studio-800/60 inline-flex flex-col gap-1 shadow-inner shrink-0">
+              {unifiedFusion.patchAnomaly.heatmapGrid.map((row, rIdx) => (
+                <div key={`row-${rIdx}`} className="flex gap-1">
+                  {row.map((score, cIdx) => {
+                    const isIdentical = score < 0.25;
+                    const isNaturalVariation = score >= 0.25 && score <= 0.45;
+                    const isDefect = score > 0.45;
+
+                    return (
+                      <div
+                        key={`cell-${rIdx}-${cIdx}`}
+                        title={`Petak [Baris ${rIdx + 1}, Kolom ${cIdx + 1}]: Skor Selisih ${(score * 100).toFixed(0)}%`}
+                        className={`w-5 h-5 rounded transition-transform hover:scale-125 cursor-help flex items-center justify-center text-[9px] font-mono font-bold ${
+                          isIdentical
+                            ? 'bg-emerald-500/70 text-emerald-100 border border-emerald-400/40'
+                            : isNaturalVariation
+                            ? 'bg-amber-500/70 text-amber-100 border border-amber-400/40'
+                            : 'bg-rose-500/80 text-rose-100 border border-rose-400/50 animate-pulse'
+                        }`}
+                      >
+                        {isDefect ? '!' : ''}
+                      </div>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+
+            {/* Keterangan Warna Ramah Pengguna Studio */}
+            <div className="flex-1 space-y-2 text-xs">
+              <p className="text-studio-300 font-medium leading-relaxed">
+                {unifiedFusion.patchAnomaly.summaryText}
+              </p>
+
+              {/* Panduan Warna */}
+              <div className="flex flex-wrap items-center gap-3 text-[11px] text-studio-400 pt-1">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-sm bg-emerald-500 inline-block" />
+                  <span>Serat Sangat Cocok</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-sm bg-amber-500 inline-block" />
+                  <span>Variasi Serat Alami</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-sm bg-rose-500 inline-block" />
+                  <span>Serat Asing / Cacat</span>
+                </div>
               </div>
             </div>
           </div>

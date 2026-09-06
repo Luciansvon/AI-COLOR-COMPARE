@@ -106,6 +106,11 @@ console.log('   - Kartu Statistik Kepekatan Tampil:', hasKepekatan);
 console.log('   - Kartu Statistik Kesesuaian Warna Tampil:', hasKesesuaian);
 console.log('   - Kartu Statistik Serat Kayu Tampil:', hasSerat);
 
+const hasHeatmap = latestText.includes('PETA PETAK SERAT KAYU AI');
+const cellCount = await page.locator('[title*="Petak [Baris"]').count();
+console.log('   - Peta Petak Serat Kayu AI (AnomalyDINO) Tampil:', hasHeatmap);
+console.log(`   - Jumlah Kotak Petak Serat Mikro Terbentuk: ${cellCount} petak`);
+
 // Uji dragging selector secara cepat dan mulus
 const roiElement = page.locator('.cursor-move').first();
 if (await roiElement.isVisible()) {

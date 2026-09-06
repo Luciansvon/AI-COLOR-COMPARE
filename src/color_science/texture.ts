@@ -2,6 +2,7 @@
 // Memastikan konsistensi 100% dengan mesin native Rust (P1 Texture Engine)
 
 import { MeasuredEvidence, TextureEvidence, UnifiedMaterialReport } from '../types';
+import { buildMasterMemoryBank, detectPatchAnomalies, MasterMemoryBank } from './deep_texture';
 
 /**
  * Konversi RGBA ke Grayscale 8-bit (Rec. 601)
@@ -166,7 +167,8 @@ export function evaluateMaterialFusion(
   masterWidth: number,
   masterHeight: number,
   productWidth: number = masterWidth,
-  productHeight: number = masterHeight
+  productHeight: number = masterHeight,
+  masterBank?: MasterMemoryBank
 ): UnifiedMaterialReport {
   const masterGray = rgbaToGrayscale(masterRgba, masterWidth, masterHeight);
   const prodGray = rgbaToGrayscale(productRgba, productWidth, productHeight);
@@ -183,6 +185,13 @@ export function evaluateMaterialFusion(
   const isGrainMatching = textureSim >= 0.82 && (!masterGrain.isDirectional || grainDiff <= 35);
   const isColorMatching = colorMeasured.deltaE00 <= 2.5;
 
+  // Analisis Patch Anomaly AnomalyDINO / PatchCore
+  let patchResult;
+  if (masterWidth >= 16 && masterHeight >= 16 && productWidth >= 16 && productHeight >= 16) {
+    const bank = masterBank || buildMasterMemoryBank('MASTER_CURRENT', masterGray, masterWidth, masterHeight, 16, 8);
+    patchResult = detectPatchAnomalies(prodGray, productWidth, productHeight, bank, 16, 16);
+  }
+
   if (isColorMatching && isGrainMatching) {
     return {
       diagnosisType: 'Conforming',
@@ -194,6 +203,7 @@ export function evaluateMaterialFusion(
       textureSimilarityScore: Number(textureSim.toFixed(2)),
       grainAngleDiffDeg: Math.round(grainDiff),
       isGrainMatching: true,
+      patchAnomaly: patchResult,
     };
   } else if (!isColorMatching && isGrainMatching) {
     const cause =
@@ -213,6 +223,7 @@ export function evaluateMaterialFusion(
       textureSimilarityScore: Number(textureSim.toFixed(2)),
       grainAngleDiffDeg: Math.round(grainDiff),
       isGrainMatching: true,
+      patchAnomaly: patchResult,
     };
   } else if (!isColorMatching && !isGrainMatching) {
     return {
@@ -225,6 +236,7 @@ export function evaluateMaterialFusion(
       textureSimilarityScore: Number(textureSim.toFixed(2)),
       grainAngleDiffDeg: Math.round(grainDiff),
       isGrainMatching: false,
+      patchAnomaly: patchResult,
     };
   } else {
     return {
@@ -237,6 +249,7 @@ export function evaluateMaterialFusion(
       textureSimilarityScore: Number(textureSim.toFixed(2)),
       grainAngleDiffDeg: Math.round(grainDiff),
       isGrainMatching: false,
+      patchAnomaly: patchResult,
     };
   }
 }

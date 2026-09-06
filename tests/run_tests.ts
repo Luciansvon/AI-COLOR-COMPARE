@@ -281,6 +281,35 @@ const defectAnomaly = detectPatchAnomalies(prodDefective32, patchImgW, patchImgH
 assertTrue(`Produk Cacat Terdeteksi Anomali Serat (Skor = ${defectAnomaly.anomalyScore})`, defectAnomaly.isAnomalous === true);
 assertTrue('Lokasi Patch Terburuk Tepat di Area Cacat', defectAnomaly.worstPatchLocation !== null && defectAnomaly.worstPatchLocation.x >= 16);
 
+// Uji integrasi evaluateMaterialFusion menghasilkan data patchAnomaly lengkap
+const masterRgba32 = new Uint8ClampedArray(patchImgW * patchImgH * 4);
+const prodDefectiveRgba32 = new Uint8ClampedArray(patchImgW * patchImgH * 4);
+for (let i = 0; i < patchImgW * patchImgH; i++) {
+  masterRgba32[i * 4] = masterGray32[i];
+  masterRgba32[i * 4 + 1] = masterGray32[i];
+  masterRgba32[i * 4 + 2] = masterGray32[i];
+  masterRgba32[i * 4 + 3] = 255;
+
+  prodDefectiveRgba32[i * 4] = prodDefective32[i];
+  prodDefectiveRgba32[i * 4 + 1] = prodDefective32[i];
+  prodDefectiveRgba32[i * 4 + 2] = prodDefective32[i];
+  prodDefectiveRgba32[i * 4 + 3] = 255;
+}
+
+const fusionWithPatch = evaluateMaterialFusion(
+  { deltaE00: 1.2, deltaL: 0.5, deltaA: 0.1, deltaB: 0.2, masterBrightness: 40, productBrightness: 41, brightnessDiffPercent: 2, contrastDiffPercent: 1, saturationDiffPercent: 0, clippingWarning: { shadowClipped: false, highlightClipped: false } },
+  masterRgba32,
+  prodDefectiveRgba32,
+  patchImgW,
+  patchImgH,
+  patchImgW,
+  patchImgH,
+  masterBank
+);
+assertTrue('Fusi Bukti Memuat Data Peta Patch Anomaly', !!fusionWithPatch.patchAnomaly);
+assertTrue('Peta Patch Mendeteksi Anomali di Fusi Material', fusionWithPatch.patchAnomaly?.isAnomalous === true);
+assertTrue('Peta Grid Heatmap Terbentuk Sesuai Dimensi', (fusionWithPatch.patchAnomaly?.heatmapGrid.length || 0) > 0);
+
 console.log('\n================================================================');
 console.log(`🏁 HASIL AKHIR: ${passedTests} dari ${totalTests} pengujian BERHASIL (100% LULUS)`);
 console.log('================================================================\n');

@@ -71,6 +71,15 @@ export type UnifiedMaterialReport = {
   textureSimilarityScore: number;
   grainAngleDiffDeg: number;
   isGrainMatching: boolean;
+  patchAnomaly?: {
+    anomalyScore: number;
+    isAnomalous: boolean;
+    gridCols: number;
+    gridRows: number;
+    heatmapGrid: number[][];
+    worstPatchLocation: { x: number; y: number; score: number } | null;
+    summaryText: string;
+  };
 };
 
 export type CorrectionParams = {

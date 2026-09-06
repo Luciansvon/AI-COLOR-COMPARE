@@ -17,6 +17,7 @@
   - **Respon Visual & Animasi Nyata pada Tombol Tindakan**: Bima membutuhkan respon visual yang tegas saat tombol aksi ditekan (terutama tombol **'Bandingkan Ulang'**). Jangan biarkan proses berjalan instan tanpa animasi/feedback visual, karena pengguna akan merasa tombolnya mati/rusak. Tombol harus menampilkan animasi ikon berputar (*spinner*), teks status sedang memproses, dan tanda sukses singkat setelah selesai.
   - **Pertanyaan Eksplisit Model AI (DINOv2)**: Bima menanyakan status nyata kecerdasan buatan visual (DINOv2 dan model lainnya) yang direncanakan di TECH_STACK.md. Bima ingin tahu wujud integrasinya dan apakah model neural tersebut sudah aktif di antarmuka aplikasi.
   - **Kebutuhan Aplikasi Mandiri (.EXE Windows Desktop)**: Bima menginginkan aplikasi bisa dijalankan sebagai berkas mandiri (`.exe`) yang praktis tinggal klik dua kali seperti aplikasi Windows biasa, tanpa perlu membuka terminal koding atau server peramban web terpisah.
+  - **Siklus Peningkatan Berkelanjutan (/goal)**: Bima menginstruksikan alur kerja pengembangan berulang (kembangkan > test > evaluasi > catat error/bug > riset komunitas 50+ sumber > terapkan > test > analisis > catat > berulang sampai disuruh berhenti). Alur ini dijalankan bertahap per siklus dengan persetujuan Bima pada setiap perencanaan awal.
 
 ## Prinsip Kerja Bersama
 - **Jangan Auto-Approve Plan**: Setiap perencanaan (plan) harus disajikan untuk ditinjau dan disetujui Bima terlebih dahulu.
