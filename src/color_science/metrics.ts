@@ -128,6 +128,8 @@ export function compareStats(
     brightnessDiffPercent: Number(brightnessDiffPercent.toFixed(1)),
     contrastDiffPercent: Number(contrastDiffPercent.toFixed(1)),
     saturationDiffPercent: Number(saturationDiffPercent.toFixed(1)),
+    masterSaturation: Number(masterStats.saturation.toFixed(1)),
+    productSaturation: Number(productStats.saturation.toFixed(1)),
     masterRgb: {
       r: Math.round(masterStats.meanRgb.r),
       g: Math.round(masterStats.meanRgb.g),

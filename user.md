@@ -13,6 +13,7 @@
   - **Interaksi Foto (Perbesar Gambar & Pilih Area Mandiri)**: Bima membutuhkan fitur memperbesar gambar (*zoom in/out* & *pan*) untuk melihat pori dan serat kayu secara mendalam, serta kebebasan memilih/menggeser area kotak pindai (*interactive ROI box*) agar pengukuran warna dan serat kayu menjadi sangat akurat sesuai bagian furnitur yang diinginkan.
   - **Ekspektasi Sampel Dinamis (*Live Dynamic Swatch*)**: Bima ingin kepastian bahwa kotak sampel warna (*swatch*) dan angka diagnosanya benar-benar berubah secara dinamis mengikuti objek yang diarahkan oleh kotak seleksi.
   - **Konsistensi Pemilihan Area Master & Produk**: Bima mengharapkan foto Master acuan juga bisa dipilih dan digeser areanya (*selectable ROI*) sama persis seperti foto produk, agar operator bisa memilih bagian papan master yang paling bersih atau menghindari stiker label/tepi papan yang terpotong.
+  - **Layout Berbasis Statistik (Dashboard Komparasi Bersih)**: Bima menginginkan tampilan hasil perbandingan disajikan dengan **format statistik yang rapi dan terstruktur** (seperti kartu-kartu metrik statistik atau tabel statistik visual), bukan tumpukan kotak teks narasi yang kaku. Statistik membandingkan langsung data Master vs Produk vs Selisih & Status (misal: Kecerahan, Kepekatan Rona, Warna, dan Serat Kayu) dengan visualisasi warna yang menyatu secara elegan sehingga langsung terbaca dalam satu lirikan.
 
 ## Prinsip Kerja Bersama
 - **Jangan Auto-Approve Plan**: Setiap perencanaan (plan) harus disajikan untuk ditinjau dan disetujui Bima terlebih dahulu.

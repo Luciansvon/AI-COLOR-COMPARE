@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ROIItem, MeasuredEvidence, EstimatedRecommendation, UnifiedMaterialReport } from '../../types';
-import { CheckCircle2, AlertTriangle, XCircle, Info, ChevronDown, ChevronUp, ShieldAlert, Sparkles, Compass, ArrowRight } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, XCircle, Info, ChevronDown, ChevronUp, ShieldAlert, Sparkles, Compass, ArrowRight, BarChart3 } from 'lucide-react';
 
 interface EvidenceCardProps {
   roi: ROIItem;
@@ -32,12 +32,17 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
     ? `rgb(${measured.productRgb.r}, ${measured.productRgb.g}, ${measured.productRgb.b})`
     : '#52341e';
 
+  // Kalkulasi persentase akurasi warna dari deltaE00 (skala 0 - 100%)
+  const colorAccuracyPercent = measured
+    ? Math.max(0, Math.min(100, Math.round(100 - measured.deltaE00 * 7.5)))
+    : 100;
+
   return (
     <div
       onClick={onSelect}
       className={`border rounded-2xl p-5 md:p-6 transition-all cursor-pointer ${
         isSelected
-          ? 'border-amber-500/80 bg-studio-900 ring-2 ring-amber-500/20 shadow-xl'
+          ? 'border-amber-500/80 bg-studio-900 ring-2 ring-amber-500/20 shadow-2xl'
           : 'border-studio-800 bg-studio-900/70 hover:bg-studio-900/90'
       }`}
     >
@@ -45,13 +50,13 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-5 pb-4 border-b border-studio-800/80">
         <div>
           <div className="flex items-center space-x-2.5">
-            <h4 className="text-base font-bold text-white">{roi.name}</h4>
+            <h4 className="text-base font-bold text-white tracking-wide">{roi.name}</h4>
             {isNoMaster ? (
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-sky-500/10 text-sky-300 border border-sky-500/20">
+              <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-sky-500/10 text-sky-300 border border-sky-500/20">
                 Guardrail (Bukan Kayu)
               </span>
             ) : (
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/20">
+              <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/20">
                 Area Master Kayu
               </span>
             )}
@@ -59,11 +64,11 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
           <p className="text-xs text-studio-400 mt-1">
             {isNoMaster
               ? 'Area pembanding non-kayu untuk memastikan koreksi warna tidak merusak bahan ini.'
-              : 'Hasil perbandingan warna dan tekstur serat terhadap sampel papan master fisik.'}
+              : 'Hasil komparasi statistik warna dan tekstur serat terhadap sampel fisik master.'}
           </p>
         </div>
 
-        {/* Lencana Diagnosa Utama */}
+        {/* Lencana Status Utama */}
         {!isNoMaster && (unifiedFusion || estimated) && (
           <div className="shrink-0">
             {unifiedFusion ? (
@@ -93,11 +98,51 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
         )}
       </div>
 
-      {/* 2. Baris Utama: Diagnosa Studio & Perbandingan Visual Swatch Warna */}
-      <div className={`grid gap-5 mb-5 ${isSingleArea ? 'grid-cols-1 lg:grid-cols-12' : 'grid-cols-1'}`}>
-        {/* Kolom Kiri: Penjelasan & Rekomendasi Solusi Praktis */}
-        <div className={isSingleArea ? 'lg:col-span-7 space-y-3' : 'space-y-3'}>
-          <div className="p-4 rounded-xl bg-studio-950 border border-studio-800 space-y-2.5">
+      {/* 2. Baris Komparasi Sampel Visual & Solusi Studio */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-5">
+        {/* Kolom Swatch Warna Berdampingan */}
+        {measured && (
+          <div className="lg:col-span-4 bg-studio-950/90 p-4 rounded-xl border border-studio-800/80 flex flex-col justify-between">
+            <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-studio-400 mb-2">
+              <span>Sampel Visual</span>
+              <span className="text-[10px] text-studio-500 font-mono">Piksel Nyata</span>
+            </div>
+
+            <div className="flex items-center justify-around gap-2 py-1 my-auto">
+              {/* Swatch Master */}
+              <div className="text-center flex-1 flex flex-col items-center">
+                <div
+                  className="w-14 h-14 rounded-xl border-2 border-studio-700 shadow-md transition transform hover:scale-105"
+                  style={{ backgroundColor: masterColorRgb }}
+                  title={`Master: ${masterColorRgb}`}
+                />
+                <span className="text-[11px] font-bold text-studio-300 mt-2 block">Master Kayu</span>
+                <span className="text-[10px] font-mono text-studio-500">L* {measured.masterBrightness}%</span>
+              </div>
+
+              {/* Panah Pembanding */}
+              <div className="text-studio-600 font-bold flex flex-col items-center px-1">
+                <ArrowRight className="w-4 h-4 text-studio-400" />
+                <span className="text-[8px] text-studio-500 mt-0.5 uppercase tracking-wider">vs</span>
+              </div>
+
+              {/* Swatch Produk */}
+              <div className="text-center flex-1 flex flex-col items-center">
+                <div
+                  className="w-14 h-14 rounded-xl border-2 border-studio-700 shadow-md transition transform hover:scale-105"
+                  style={{ backgroundColor: productColorRgb }}
+                  title={`Produk: ${productColorRgb}`}
+                />
+                <span className="text-[11px] font-bold text-studio-300 mt-2 block">Produk Studio</span>
+                <span className="text-[10px] font-mono text-studio-500">L* {measured.productBrightness}%</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Kolom Diagnosa & Solusi Praktis Studio */}
+        <div className={measured ? 'lg:col-span-8' : 'col-span-12'}>
+          <div className="bg-studio-950/90 p-4 rounded-xl border border-studio-800/80 flex flex-col justify-between h-full space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-bold uppercase tracking-wider text-studio-400">
                 Diagnosa Studio:
@@ -106,11 +151,11 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
                 {unifiedFusion?.primaryCause || estimated?.primaryCause || 'Analisis Studio'}
               </span>
             </div>
+
             <p className="text-xs text-studio-200 leading-relaxed font-medium">
               {unifiedFusion?.humanExplanation || estimated?.explanation || 'Warna dan serat kayu telah diperiksa terhadap master acuan.'}
             </p>
 
-            {/* Solusi Studio */}
             <div className="pt-2.5 border-t border-studio-800/80 flex items-start gap-2 text-xs text-studio-300">
               <span className="text-amber-400 font-bold shrink-0">💡 Solusi:</span>
               <span className="leading-relaxed">
@@ -127,164 +172,206 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
             </div>
           </div>
         </div>
-
-        {/* Kolom Kanan: Perbandingan Visual Berdampingan (Color Swatch) */}
-        {measured && (
-          <div className={isSingleArea ? 'lg:col-span-5' : 'w-full'}>
-            <div className="p-4 rounded-xl bg-studio-950 border border-studio-800 flex flex-col justify-between h-full">
-              <div className="text-[11px] font-bold uppercase tracking-wider text-studio-400 mb-2.5 flex items-center justify-between">
-                <span>Sampel Warna Visual</span>
-                <span className="text-[10px] text-studio-500 font-mono">Ekstraksi Piksel</span>
-              </div>
-
-              <div className="flex items-center justify-around gap-2 my-auto py-2">
-                {/* Swatch Master */}
-                <div className="text-center space-y-1.5 flex-1 flex flex-col items-center">
-                  <div
-                    className="w-14 h-14 rounded-xl border-2 border-studio-700 shadow-md transition transform hover:scale-105"
-                    style={{ backgroundColor: masterColorRgb }}
-                    title={`Master Acuan: ${masterColorRgb}`}
-                  />
-                  <span className="text-[11px] font-bold text-studio-300 block">Master Kayu</span>
-                  <span className="text-[10px] font-mono text-studio-500">
-                    L* {measured.masterBrightness}%
-                  </span>
-                </div>
-
-                {/* Panah Pembanding */}
-                <div className="text-studio-600 font-bold flex flex-col items-center px-1">
-                  <ArrowRight className="w-5 h-5 text-studio-500" />
-                  <span className="text-[9px] text-studio-500 mt-1 uppercase">vs</span>
-                </div>
-
-                {/* Swatch Produk */}
-                <div className="text-center space-y-1.5 flex-1 flex flex-col items-center">
-                  <div
-                    className="w-14 h-14 rounded-xl border-2 border-studio-700 shadow-md transition transform hover:scale-105"
-                    style={{ backgroundColor: productColorRgb }}
-                    title={`Produk Studio: ${productColorRgb}`}
-                  />
-                  <span className="text-[11px] font-bold text-studio-300 block">Produk Studio</span>
-                  <span className="text-[10px] font-mono text-studio-500">
-                    L* {measured.productBrightness}%
-                  </span>
-                </div>
-              </div>
-
-              {/* Keterangan Selisih Singkat */}
-              <div className="mt-2 text-center text-[11px] text-studio-400 border-t border-studio-800/60 pt-1.5 font-medium">
-                {Math.abs(measured.brightnessDiffPercent) <= 3 ? (
-                  <span className="text-emerald-400">Tingkat kecerahan identik seimbang</span>
-                ) : measured.brightnessDiffPercent > 3 ? (
-                  <span className="text-amber-300">Produk lebih terang +{measured.brightnessDiffPercent}%</span>
-                ) : (
-                  <span className="text-sky-300">Produk lebih gelap {measured.brightnessDiffPercent}%</span>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
-      {/* 3. Empat Pilar Rangkuman Visual (Lapang & Nyaman Dibaca) */}
+      {/* 3. PAPAN STATISTIK KOMPARASI (THE CORE STATS DASHBOARD) */}
       {measured && (
-        <div className="mb-4">
-          <div className="text-[11px] font-bold uppercase tracking-wider text-studio-400 mb-2.5 flex items-center justify-between">
-            <span>4 Pilar Pengukuran Studio vs Master Fisik</span>
-            <span className="text-[10px] text-emerald-400 font-medium">Objektif & Terverifikasi</span>
+        <div className="mb-5">
+          <div className="text-[11px] font-bold uppercase tracking-wider text-studio-400 mb-3 flex items-center justify-between">
+            <span className="flex items-center gap-1.5">
+              <BarChart3 className="w-3.5 h-3.5 text-amber-400" />
+              Papan Statistik Komparasi (Master vs Produk)
+            </span>
+            <span className="text-[10px] text-emerald-400 font-medium">Data Metrik Objektif</span>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {/* Pilar 1: Karakter Serat Kayu */}
-            <div className="bg-studio-950 p-3.5 rounded-xl border border-studio-800/80 flex flex-col justify-between">
-              <span className="text-[10px] text-studio-400 font-bold uppercase tracking-wider">
-                🪵 Serat Kayu
-              </span>
-              <div className="my-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+            {/* KARTU STATISTIK 1: KECERAHAN CAHAYA */}
+            <div className="bg-studio-950 p-4 rounded-xl border border-studio-800/90 hover:border-studio-700 transition flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-studio-400">
+                    💡 Kecerahan Cahaya
+                  </span>
+                  <span
+                    className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${
+                      Math.abs(measured.brightnessDiffPercent) <= 3
+                        ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                        : measured.brightnessDiffPercent > 3
+                        ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                        : 'bg-sky-500/15 text-sky-300 border-sky-500/30'
+                    }`}
+                  >
+                    {Math.abs(measured.brightnessDiffPercent) <= 3
+                      ? 'Cahaya Pas'
+                      : measured.brightnessDiffPercent > 3
+                      ? 'Lebih Terang'
+                      : 'Lebih Gelap'}
+                  </span>
+                </div>
+
+                {/* Angka Perbandingan Master vs Produk */}
+                <div className="grid grid-cols-2 gap-2 bg-studio-900/80 p-2.5 rounded-lg border border-studio-800/60 my-2 text-center">
+                  <div>
+                    <span className="text-[10px] text-studio-500 block">Master Fisik</span>
+                    <span className="text-sm font-bold font-mono text-studio-200">{measured.masterBrightness}%</span>
+                  </div>
+                  <div className="border-l border-studio-800 pl-2">
+                    <span className="text-[10px] text-studio-500 block">Produk Foto</span>
+                    <span className="text-sm font-bold font-mono text-studio-200">{measured.productBrightness}%</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Selisih & Keterangan */}
+              <div className="pt-2 border-t border-studio-800/60 flex items-center justify-between text-[11px]">
+                <span className="text-studio-400">Selisih Cahaya:</span>
                 <span
-                  className={`text-xs font-bold px-2.5 py-1 rounded-lg inline-block border ${
-                    unifiedFusion?.isGrainMatching
-                      ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
-                      : 'bg-rose-500/20 text-rose-300 border-rose-500/30'
+                  className={`font-bold font-mono ${
+                    Math.abs(measured.brightnessDiffPercent) <= 3
+                      ? 'text-emerald-400'
+                      : measured.brightnessDiffPercent > 3
+                      ? 'text-amber-400'
+                      : 'text-sky-400'
                   }`}
                 >
-                  {unifiedFusion?.isGrainMatching ? 'Serat Cocok' : 'Beda Serat'}
+                  {measured.brightnessDiffPercent > 0 ? `+${measured.brightnessDiffPercent}%` : `${measured.brightnessDiffPercent}%`}
                 </span>
               </div>
-              <span className="text-[11px] text-studio-400">
-                {unifiedFusion
-                  ? `${(unifiedFusion.textureSimilarityScore * 100).toFixed(0)}% Identik Master`
-                  : 'Pola serat normal'}
-              </span>
             </div>
 
-            {/* Pilar 2: Kesesuaian Warna */}
-            <div className="bg-studio-950 p-3.5 rounded-xl border border-studio-800/80 flex flex-col justify-between">
-              <span className="text-[10px] text-studio-400 font-bold uppercase tracking-wider">
-                🎨 Kesesuaian Warna
-              </span>
-              <div className="my-2">
+            {/* KARTU STATISTIK 2: KEPEKATAN RONA (SATURASI) */}
+            <div className="bg-studio-950 p-4 rounded-xl border border-studio-800/90 hover:border-studio-700 transition flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-studio-400">
+                    🌈 Kepekatan Rona
+                  </span>
+                  <span
+                    className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${
+                      Math.abs(measured.saturationDiffPercent) <= 4
+                        ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                        : measured.saturationDiffPercent > 4
+                        ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                        : 'bg-sky-500/15 text-sky-300 border-sky-500/30'
+                    }`}
+                  >
+                    {Math.abs(measured.saturationDiffPercent) <= 4
+                      ? 'Warna Alami'
+                      : measured.saturationDiffPercent > 4
+                      ? 'Lebih Pekat'
+                      : 'Agak Pucat'}
+                  </span>
+                </div>
+
+                {/* Angka Perbandingan Master vs Produk */}
+                <div className="grid grid-cols-2 gap-2 bg-studio-900/80 p-2.5 rounded-lg border border-studio-800/60 my-2 text-center">
+                  <div>
+                    <span className="text-[10px] text-studio-500 block">Master Fisik</span>
+                    <span className="text-sm font-bold font-mono text-studio-200">
+                      {measured.masterSaturation !== undefined ? `${measured.masterSaturation}%` : 'Standar'}
+                    </span>
+                  </div>
+                  <div className="border-l border-studio-800 pl-2">
+                    <span className="text-[10px] text-studio-500 block">Produk Foto</span>
+                    <span className="text-sm font-bold font-mono text-studio-200">
+                      {measured.productSaturation !== undefined ? `${measured.productSaturation}%` : 'Studio'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Selisih & Keterangan */}
+              <div className="pt-2 border-t border-studio-800/60 flex items-center justify-between text-[11px]">
+                <span className="text-studio-400">Selisih Kepekatan:</span>
                 <span
-                  className={`text-xs font-bold px-2.5 py-1 rounded-lg inline-block border ${
-                    measured.deltaE00 <= 2.2
-                      ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
-                      : measured.deltaE00 <= 4.5
-                      ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
-                      : 'bg-rose-500/20 text-rose-300 border-rose-500/30'
+                  className={`font-bold font-mono ${
+                    Math.abs(measured.saturationDiffPercent) <= 4
+                      ? 'text-emerald-400'
+                      : measured.saturationDiffPercent > 4
+                      ? 'text-amber-400'
+                      : 'text-sky-400'
                   }`}
                 >
-                  {measured.deltaE00 <= 2.2 ? 'Sangat Pas' : measured.deltaE00 <= 4.5 ? 'Beda Tipis' : 'Beda Jelas'}
+                  {measured.saturationDiffPercent > 0 ? `+${measured.saturationDiffPercent}%` : `${measured.saturationDiffPercent}%`}
                 </span>
               </div>
-              <span className="text-[11px] text-studio-400">
-                {measured.deltaE00 <= 2.2 ? 'Sesuai standar studio' : measured.deltaE00 <= 4.5 ? 'Masih batas wajar' : 'Perlu disesuaikan'}
-              </span>
             </div>
 
-            {/* Pilar 3: Pencahayaan */}
-            <div className="bg-studio-950 p-3.5 rounded-xl border border-studio-800/80 flex flex-col justify-between">
-              <span className="text-[10px] text-studio-400 font-bold uppercase tracking-wider">
-                💡 Pencahayaan
-              </span>
-              <div className="my-2">
-                <span className="text-xs font-bold text-studio-100 block truncate">
-                  {Math.abs(measured.brightnessDiffPercent) <= 3
-                    ? 'Cahaya Pas'
-                    : measured.brightnessDiffPercent > 3
-                    ? `Lebih Terang (+${measured.brightnessDiffPercent}%)`
-                    : `Lebih Gelap (${measured.brightnessDiffPercent}%)`}
-                </span>
+            {/* KARTU STATISTIK 3: KESESUAIAN WARNA FISIK */}
+            <div className="bg-studio-950 p-4 rounded-xl border border-studio-800/90 hover:border-studio-700 transition flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-studio-400">
+                    🎨 Kesesuaian Warna
+                  </span>
+                  <span
+                    className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${
+                      measured.deltaE00 <= 2.2
+                        ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                        : measured.deltaE00 <= 4.5
+                        ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                        : 'bg-rose-500/15 text-rose-300 border-rose-500/30'
+                    }`}
+                  >
+                    {measured.deltaE00 <= 2.2 ? 'Sangat Pas' : measured.deltaE00 <= 4.5 ? 'Beda Tipis' : 'Beda Jelas'}
+                  </span>
+                </div>
+
+                {/* Angka Skor Utama */}
+                <div className="bg-studio-900/80 p-2.5 rounded-lg border border-studio-800/60 my-2 text-center">
+                  <span className="text-[10px] text-studio-500 block">Tingkat Kecocokan</span>
+                  <div className="flex items-center justify-center gap-1.5">
+                    <span className="text-base font-bold font-mono text-emerald-400">{colorAccuracyPercent}%</span>
+                    <span className="text-xs text-studio-400 font-medium">Akurat</span>
+                  </div>
+                </div>
               </div>
-              <span className="text-[11px] text-studio-400">
-                {Math.abs(measured.brightnessDiffPercent) <= 3
-                  ? 'Intensitas seimbang'
-                  : measured.brightnessDiffPercent > 3
-                  ? 'Perlu kurangi lampu'
-                  : 'Perlu tambah lampu'}
-              </span>
+
+              {/* Selisih & Keterangan */}
+              <div className="pt-2 border-t border-studio-800/60 flex items-center justify-between text-[11px]">
+                <span className="text-studio-400">Skor Selisih (ΔE₀₀):</span>
+                <span className="font-bold font-mono text-studio-200">{measured.deltaE00}</span>
+              </div>
             </div>
 
-            {/* Pilar 4: Kepekatan Rona */}
-            <div className="bg-studio-950 p-3.5 rounded-xl border border-studio-800/80 flex flex-col justify-between">
-              <span className="text-[10px] text-studio-400 font-bold uppercase tracking-wider">
-                🌈 Kepekatan Rona
-              </span>
-              <div className="my-2">
-                <span className="text-xs font-bold text-studio-100 block truncate">
-                  {Math.abs(measured.saturationDiffPercent) <= 4
-                    ? 'Warna Alami'
-                    : measured.saturationDiffPercent > 4
-                    ? `Lebih Pekat (+${measured.saturationDiffPercent}%)`
-                    : `Agak Pucat (${measured.saturationDiffPercent}%)`}
+            {/* KARTU STATISTIK 4: STRUKTUR SERAT & TEKSTUR KAYU */}
+            <div className="bg-studio-950 p-4 rounded-xl border border-studio-800/90 hover:border-studio-700 transition flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-studio-400">
+                    🪵 Serat Kayu
+                  </span>
+                  <span
+                    className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${
+                      unifiedFusion?.isGrainMatching !== false
+                        ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                        : 'bg-rose-500/15 text-rose-300 border-rose-500/30'
+                    }`}
+                  >
+                    {unifiedFusion?.isGrainMatching !== false ? 'Serat Cocok' : 'Beda Serat'}
+                  </span>
+                </div>
+
+                {/* Angka Skor Utama */}
+                <div className="bg-studio-900/80 p-2.5 rounded-lg border border-studio-800/60 my-2 text-center">
+                  <span className="text-[10px] text-studio-500 block">Kemiripan Pori & Urat</span>
+                  <div className="flex items-center justify-center gap-1.5">
+                    <span className="text-base font-bold font-mono text-emerald-400">
+                      {unifiedFusion ? `${(unifiedFusion.textureSimilarityScore * 100).toFixed(0)}%` : '100%'}
+                    </span>
+                    <span className="text-xs text-studio-400 font-medium">Identik</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Selisih & Keterangan */}
+              <div className="pt-2 border-t border-studio-800/60 flex items-center justify-between text-[11px]">
+                <span className="text-studio-400">Arah Alur Kayu:</span>
+                <span className="font-bold font-mono text-studio-200">
+                  {unifiedFusion ? `${unifiedFusion.grainAngleDiffDeg}° (${unifiedFusion.grainAngleDiffDeg <= 20 ? 'Searah' : 'Miring'})` : 'Searah'}
                 </span>
               </div>
-              <span className="text-[11px] text-studio-400">
-                {Math.abs(measured.saturationDiffPercent) <= 4
-                  ? 'Ketebalan warna pas'
-                  : measured.saturationDiffPercent > 4
-                  ? 'Warna lebih menyala'
-                  : 'Warna kurang keluar'}
-              </span>
             </div>
           </div>
         </div>

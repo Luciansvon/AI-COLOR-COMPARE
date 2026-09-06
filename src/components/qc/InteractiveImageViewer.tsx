@@ -87,8 +87,16 @@ export const InteractiveImageViewer: React.FC<InteractiveImageViewerProps> = ({
 
   // Status Dragging Mouse & Ref Kotak Terakhir
   const [dragState, setDragState] = useState<DragState | null>(null);
+  const [activeDragBox, setActiveDragBox] = useState<{ id: string; box: ROIBox } | null>(null);
   const [drawingBox, setDrawingBox] = useState<ROIBox | null>(null);
   const lastBoxRef = useRef<{ id: string; box: ROIBox } | null>(null);
+
+  const onUpdateRoiBoxRef = useRef(onUpdateRoiBox);
+  onUpdateRoiBoxRef.current = onUpdateRoiBox;
+  const roisRef = useRef(rois);
+  roisRef.current = rois;
+  const selectedRoiIdRef = useRef(selectedRoiId);
+  selectedRoiIdRef.current = selectedRoiId;
 
   // Reset zoom & pan saat gambar berganti
   useEffect(() => {
@@ -172,6 +180,7 @@ export const InteractiveImageViewer: React.FC<InteractiveImageViewerProps> = ({
     if (onSelectRoi) onSelectRoi(roi.id);
 
     lastBoxRef.current = { id: roi.id, box: { ...roi.box } };
+    setActiveDragBox({ id: roi.id, box: { ...roi.box } });
     setDragState({
       type: 'roi-move',
       roiId: roi.id,
@@ -198,6 +207,7 @@ export const InteractiveImageViewer: React.FC<InteractiveImageViewerProps> = ({
     if (onSelectRoi) onSelectRoi(roiId);
 
     lastBoxRef.current = { id: roiId, box: { ...currentBox } };
+    setActiveDragBox({ id: roiId, box: { ...currentBox } });
     setDragState({
       type: 'roi-resize',
       roiId,
@@ -277,7 +287,7 @@ export const InteractiveImageViewer: React.FC<InteractiveImageViewerProps> = ({
         };
 
         lastBoxRef.current = { id: dragState.roiId, box: updatedBox };
-        onUpdateRoiBox?.(dragState.roiId, updatedBox, false);
+        setActiveDragBox({ id: dragState.roiId, box: updatedBox });
         return;
       }
 
@@ -324,7 +334,7 @@ export const InteractiveImageViewer: React.FC<InteractiveImageViewerProps> = ({
         };
 
         lastBoxRef.current = { id: dragState.roiId, box: updatedBox };
-        onUpdateRoiBox?.(dragState.roiId, updatedBox, false);
+        setActiveDragBox({ id: dragState.roiId, box: updatedBox });
         return;
       }
 
@@ -348,16 +358,17 @@ export const InteractiveImageViewer: React.FC<InteractiveImageViewerProps> = ({
 
     const handleGlobalMouseUp = () => {
       // Jika baru selesai menggeser atau mengubah ukuran kotak, kirim pembaruan final
-      if (lastBoxRef.current && onUpdateRoiBox) {
-        onUpdateRoiBox(lastBoxRef.current.id, lastBoxRef.current.box, true);
+      if (lastBoxRef.current && onUpdateRoiBoxRef.current) {
+        onUpdateRoiBoxRef.current(lastBoxRef.current.id, lastBoxRef.current.box, true);
         lastBoxRef.current = null;
       }
+      setActiveDragBox(null);
 
       if (dragState.type === 'draw' && drawingBox) {
         if (drawingBox.width >= 3 && drawingBox.height >= 3) {
-          const targetRoiId = selectedRoiId || rois[0]?.id;
-          if (targetRoiId && onUpdateRoiBox) {
-            onUpdateRoiBox(targetRoiId, drawingBox, true);
+          const targetRoiId = selectedRoiIdRef.current || roisRef.current[0]?.id;
+          if (targetRoiId && onUpdateRoiBoxRef.current) {
+            onUpdateRoiBoxRef.current(targetRoiId, drawingBox, true);
           }
         }
         setDrawingBox(null);
@@ -374,7 +385,7 @@ export const InteractiveImageViewer: React.FC<InteractiveImageViewerProps> = ({
       window.removeEventListener('mousemove', handleGlobalMouseMove);
       window.removeEventListener('mouseup', handleGlobalMouseUp);
     };
-  }, [dragState, drawingBox, onUpdateRoiBox, rois, selectedRoiId]);
+  }, [dragState, drawingBox]);
 
   return (
     <div className="flex flex-col bg-studio-900 border border-studio-800 rounded-2xl overflow-hidden shadow-xl">
@@ -582,21 +593,23 @@ export const InteractiveImageViewer: React.FC<InteractiveImageViewerProps> = ({
                 }
               }
 
+              const displayBox = activeDragBox && activeDragBox.id === roi.id ? activeDragBox.box : roi.box;
+
               return (
                 <div
                   key={roi.id}
-                  onMouseDown={(e) => handleStartMoveBox(e, roi)}
+                  onMouseDown={(e) => handleStartMoveBox(e, { ...roi, box: displayBox })}
                   onClick={(e) => {
                     e.stopPropagation();
                     if (onSelectRoi) onSelectRoi(roi.id);
                   }}
                   style={{
-                    left: `${roi.box.x}%`,
-                    top: `${roi.box.y}%`,
-                    width: `${roi.box.width}%`,
-                    height: `${roi.box.height}%`,
+                    left: `${displayBox.x}%`,
+                    top: `${displayBox.y}%`,
+                    width: `${displayBox.width}%`,
+                    height: `${displayBox.height}%`,
                   }}
-                  className={`absolute transition-all border-2 rounded ${borderColor} ${bgColor} ${
+                  className={`absolute transition-colors border-2 rounded ${borderColor} ${bgColor} ${
                     isEditableRoi && toolMode !== 'pan' ? 'cursor-move' : 'cursor-pointer'
                   } ${
                     isSelected
@@ -617,25 +630,25 @@ export const InteractiveImageViewer: React.FC<InteractiveImageViewerProps> = ({
                     <>
                       {/* Titik Kiri Atas (TL) */}
                       <div
-                        onMouseDown={(e) => handleStartResize(e, roi.id, 'tl', roi.box)}
+                        onMouseDown={(e) => handleStartResize(e, roi.id, 'tl', displayBox)}
                         className="absolute -top-1.5 -left-1.5 w-3.5 h-3.5 bg-white border-2 border-amber-500 rounded-full cursor-nwse-resize shadow-lg hover:scale-125 z-30 transition-transform"
                         title="Tarik sudut untuk ubah ukuran area"
                       />
                       {/* Titik Kanan Atas (TR) */}
                       <div
-                        onMouseDown={(e) => handleStartResize(e, roi.id, 'tr', roi.box)}
+                        onMouseDown={(e) => handleStartResize(e, roi.id, 'tr', displayBox)}
                         className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 bg-white border-2 border-amber-500 rounded-full cursor-nesw-resize shadow-lg hover:scale-125 z-30 transition-transform"
                         title="Tarik sudut untuk ubah ukuran area"
                       />
                       {/* Titik Kiri Bawah (BL) */}
                       <div
-                        onMouseDown={(e) => handleStartResize(e, roi.id, 'bl', roi.box)}
+                        onMouseDown={(e) => handleStartResize(e, roi.id, 'bl', displayBox)}
                         className="absolute -bottom-1.5 -left-1.5 w-3.5 h-3.5 bg-white border-2 border-amber-500 rounded-full cursor-nesw-resize shadow-lg hover:scale-125 z-30 transition-transform"
                         title="Tarik sudut untuk ubah ukuran area"
                       />
                       {/* Titik Kanan Bawah (BR) */}
                       <div
-                        onMouseDown={(e) => handleStartResize(e, roi.id, 'br', roi.box)}
+                        onMouseDown={(e) => handleStartResize(e, roi.id, 'br', displayBox)}
                         className="absolute -bottom-1.5 -right-1.5 w-3.5 h-3.5 bg-white border-2 border-amber-500 rounded-full cursor-nwse-resize shadow-lg hover:scale-125 z-30 transition-transform"
                         title="Tarik sudut untuk ubah ukuran area"
                       />
