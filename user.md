@@ -1,0 +1,28 @@
+# Profil Pengguna (Bima)
+
+## Latar Belakang & Pemahaman
+- **Nama**: Bima.
+- **Tingkat Pemahaman Koding**: Tidak paham fundamental koding atau istilah teknis yang rumit.
+- **Gaya Komunikasi yang Disukai**:
+  - Bahasa Indonesia santun, jelas, dan mudah dipahami (dilarang menggunakan bahasa asing/Inggris).
+  - Gunakan analogi dunia nyata atau penjelasan visual to-the-point tanpa jargon yang membingungkan.
+  - Penjelasan langkah demi langkah yang praktis.
+
+## Prinsip Kerja Bersama
+- **Jangan Auto-Approve Plan**: Setiap perencanaan (plan) harus disajikan untuk ditinjau dan disetujui Bima terlebih dahulu.
+- **Jujur & Tidak Mengarang**: Jika ada keterbatasan teknis atau hal yang belum bisa dilakukan, katakan apa adanya.
+- **Jangan Asal Bertindak**: Jangan langsung mengeksekusi tindakan besar jika Bima hanya bertanya atau belum memberi instruksi mulai.
+- **Informasi Selalu Terupdate**: Memberikan data faktual dan kondisi terkini.
+
+## Proyek: Studio Color Consistency & Material QC System
+- **Tujuan**: Membantu studio foto furnitur mengecek apakah warna produk di foto sesuai dengan sampel kayu fisik asli (master panel), membedakan apakah selisih warna akibat pencahayaan/setting kamera atau memang bahannya yang beda.
+- **Peran Bima**: Operator / pengambil keputusan utama (keputusan PASS/FAIL akhir ada di tangan manusia).
+- **Kondisi Teknis Studio**: Bima belum hafal/lupa tipe kamera dan format RAW studio, saat ini sedang libur di rumah.
+- **Strategi AI & Arsitektur (Sudah Ditetapkan & Divalidasi Komunitas)**:
+  - **Tahap P0**: Tanpa AI (100% perhitungan matematika warna murni: Lab, ΔE00, kecerahan, kontras, saturasi, relative WB/eksposur).
+  - **Tahap P1 (Model Visual Unggulan)**:
+    1. **AnomalyDINO + DINOv2-S**: Membandingkan serat kayu per petak kecil (*patch*) terhadap memori papan master fisik secara *one-shot* di CPU, bukan sekadar skor kemiripan global.
+    2. **DISTS**: Mengukur kemiripan struktur dan tekstur permukaan yang kebal terhadap sedikit pergeseran sudut atau pantulan lampu.
+    3. **Memori Per Master**: Bank referensi dipisah per kode master (misal WN-04 punya bank memori sendiri) agar variasi alami urat kayu tidak dianggap cacat.
+  - Komputer target: Windows CPU-only (RAM 8 GB), tanpa perlu Python/PyTorch di komputer studio (Tauri + Rust + ONNX Runtime).
+- **Dokumentasi Terkait**: Berkas `TECH_STACK.md` telah diperbarui dengan riset komunitas 50+ sumber dan peringkat model yang jelas.
