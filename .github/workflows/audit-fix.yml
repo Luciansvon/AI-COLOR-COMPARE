@@ -1,4 +1,4 @@
-name: Audit Fix Verification
+name: Accessibility Layout Verification
 
 on:
   push:
@@ -9,9 +9,10 @@ permissions:
   contents: write
 
 jobs:
-  apply-and-verify:
+  apply-test-evaluate:
     if: github.actor != 'github-actions[bot]'
     runs-on: windows-latest
+
     steps:
       - name: Checkout cabang audit
         uses: actions/checkout@v4
@@ -24,17 +25,40 @@ jobs:
           node-version: 20
           cache: npm
 
-      - name: Terapkan patch audit
-        run: python tools/apply_audit_fix.py
+      - name: Terapkan patch layout low vision
+        run: python tools/apply_accessibility_layout_fix_v2.py
 
       - name: Pasang dependensi frontend
         run: npm ci
 
-      - name: Uji sains warna frontend
+      - name: Uji logika frontend
         run: npm test
 
-      - name: Build frontend
+      - name: Build production frontend
         run: npm run build
+
+      - name: Uji layout dan keterbacaan di Edge
+        shell: pwsh
+        run: |
+          $server = Start-Process -FilePath "npm.cmd" -ArgumentList @("run", "dev", "--", "--host", "127.0.0.1", "--port", "3000") -PassThru -WindowStyle Hidden
+          try {
+            $ready = $false
+            for ($i = 0; $i -lt 30; $i++) {
+              try {
+                Invoke-WebRequest -Uri "http://127.0.0.1:3000" -UseBasicParsing | Out-Null
+                $ready = $true
+                break
+              } catch {
+                Start-Sleep -Seconds 1
+              }
+            }
+            if (-not $ready) { throw "Vite dev server tidak siap setelah 30 detik" }
+            npm run test:browser
+          } finally {
+            if ($server -and !$server.HasExited) {
+              Stop-Process -Id $server.Id -Force -ErrorAction SilentlyContinue
+            }
+          }
 
       - name: Uji Rust core
         run: cargo test --manifest-path src-tauri/Cargo.toml
@@ -42,18 +66,25 @@ jobs:
       - name: Periksa kompilasi Rust
         run: cargo check --manifest-path src-tauri/Cargo.toml
 
-      - name: Commit hasil fix yang sudah lolos verifikasi
+      - name: Simpan screenshot hasil evaluasi
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: accessibility-layout-evidence
+          path: test-artifacts/
+          if-no-files-found: ignore
+
+      - name: Commit hanya jika seluruh evaluasi lolos
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          # File CI permanen dibuat lewat koneksi GitHub terpisah karena token Actions
-          # tidak memiliki izin workflows. Jangan sertakan perubahan workflow di commit bot.
-          rm -f .github/workflows/ci.yml
+          rm -rf test-artifacts
+          rm -f tests/sample_master.jpg tests/sample_product.jpg
           git add -A
           if git diff --cached --quiet; then
-            echo "Tidak ada perubahan hasil patch."
+            echo "Tidak ada perubahan source setelah patch."
             exit 0
           fi
-          git commit -m "fix(core): perkuat storage, upload, export, dan validasi QC"
+          git commit -m "fix(ui): besarkan layout untuk operator low vision"
           git push origin HEAD:audit/fix-core-reliability-20260906
