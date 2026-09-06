@@ -44,4 +44,5 @@
   - **Biner Windows**: `src-tauri/target/release/studio-color-qc.exe` (10.18 MB) terpasang di Desktop dengan izin jendela stabil.
   - **GitHub Remote & Penggabungan Kode (PR #1 Terkini)**: Branch `main` telah digabungkan (*merged*) dengan perbaikan keandalan core (database persisten anti-hilang, validasi nama dan dimensi ekspor foto, pencegahan crash memori, dan peningkatan kestabilan antarmuka). Biner desktop telah dikompilasi ulang dan diuji 100% stabil.
   - **Perbaikan Bug Peta Petak Meluber (Terkini)**: Masalah kotak-kotak hijau peta petak serat kayu (*AnomalyDINO Heatmap*) yang meledak hingga ribuan petak dan meluber keluar dari bingkai kartu saat memuat foto kamera beresolusi besar telah berhasil diatasi dengan sistem kisi adaptif terkontrol (maksimal 9x9 / 81 petak) dan bingkai kartu anti-tumpah (*overflow-hidden*).
+  - **Rilis Resmi GitHub (v0.3.0)**: Telah dipublikasikan di `https://github.com/Luciansvon/AI-COLOR-COMPARE/releases/tag/v0.3.0` lengkap dengan paket biner mandiri Windows `Studio-Color-QC-v0.3.0-Windows-x64.exe` dan berkas arsip `.zip`.
 
