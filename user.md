@@ -43,4 +43,5 @@
   - **Alur Uji Pengguna (Pembaruan Terkini)**: Alur kerja kini bersih di awal tanpa pengecekan prematur. Tersedia tombol dan dropzone unggah foto Master acuan langsung (format JPG & RAW didukung penuh). Hasil analisis baru diproses setelah kedua foto siap.
   - **Biner Windows**: `src-tauri/target/release/studio-color-qc.exe` (10.18 MB) terpasang di Desktop dengan izin jendela stabil.
   - **GitHub Remote & Penggabungan Kode (PR #1 Terkini)**: Branch `main` telah digabungkan (*merged*) dengan perbaikan keandalan core (database persisten anti-hilang, validasi nama dan dimensi ekspor foto, pencegahan crash memori, dan peningkatan kestabilan antarmuka). Biner desktop telah dikompilasi ulang dan diuji 100% stabil.
+  - **Perbaikan Bug Peta Petak Meluber (Terkini)**: Masalah kotak-kotak hijau peta petak serat kayu (*AnomalyDINO Heatmap*) yang meledak hingga ribuan petak dan meluber keluar dari bingkai kartu saat memuat foto kamera beresolusi besar telah berhasil diatasi dengan sistem kisi adaptif terkontrol (maksimal 9x9 / 81 petak) dan bingkai kartu anti-tumpah (*overflow-hidden*).
 
