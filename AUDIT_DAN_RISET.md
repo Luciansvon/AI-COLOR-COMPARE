@@ -18,10 +18,10 @@ Dokumen ini disusun sebagai bagian dari alur pengembangan berkelanjutan (*contin
 ### 2. Catatan Temuan Masalah, Bug, & Kebutuhan Lanjutan
 | No | Komponen | Temuan / Kebutuhan | Solusi yang Direncanakan | Status |
 | :---: | :--- | :--- | :--- | :---: |
-| 1 | **UI / Ekspor** | Operator studio belum memiliki tombol satu-klik untuk mencetak/menyimpan ringkasan kartu laporan QC (format cetak bersih untuk mandor pabrik/klien). | Tambahkan tombol **"Cetak Laporan QC"** & unduh kartu ringkasan visual ke format cetak bersih. | **Prioritas Siklus 2** |
-| 2 | **Database** | Tombol "Riwayat QC" di header belum terhubung langsung ke SQLite lokal Windows saat dijalankan sebagai web browser lokal. | Sinkronkan penyimpanan riwayat ke `localStorage` (mode browser) dan SQLite lokal Tauri (mode Desktop). | **Prioritas Siklus 2** |
-| 3 | **Papan Master** | Operator belum bisa menambahkan foto sampel master fisik baru langsung dari kamera/berkas untuk disimpan ke perpustakaan kayu. | Sediakan formulir tambah master dengan pratinjau foto dan ekstraksi otomatis bank memori. | **Prioritas Siklus 3** |
-| 4 | **Biner .EXE** | Biner `studio-color-qc.exe` di disk saat ini masih versi sebelum penambahan fitur Papan Statistik & Peta Petak AI. | Jalankan kompilasi `cargo tauri build` dan buatkan pintasan di Desktop Mas Bima. | **Prioritas Siklus 4** |
+| 1 | **UI / Ekspor** | Operator studio butuh tombol satu-klik untuk mencetak/menyimpan ringkasan kartu laporan QC (format cetak bersih untuk mandor pabrik/klien). | Komponen `QCReportModal.tsx` selesai dibuat & teruji via Playwright (bukti: `qc_certificate_report_verified.png`). | **SELESAI (Siklus 2)** ✅ |
+| 2 | **Database** | Sinkronisasi riwayat QC terverifikasi di SQLite dan localStorage lokal. | Mekanisme simpan otomatis dan ekspor JSON aktif di `tauriBridge.ts` dan `QCHistoryView.tsx`. | **SELESAI (Siklus 2)** ✅ |
+| 3 | **Papan Master** | Operator belum bisa menambahkan foto sampel master fisik baru langsung dari kamera/berkas untuk disimpan ke perpustakaan kayu. | Sediakan formulir tambah master dengan pratinjau foto dan ekstraksi otomatis bank memori. | **Prioritas Siklus 3** ⏳ |
+| 4 | **Biner .EXE** | Biner `studio-color-qc.exe` di disk saat ini masih versi sebelum penambahan fitur Papan Statistik & Peta Petak AI. | Jalankan kompilasi `cargo tauri build` dan buatkan pintasan di Desktop Mas Bima. | **Prioritas Siklus 4** ⏳ |
 
 ---
 

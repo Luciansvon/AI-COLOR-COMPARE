@@ -130,10 +130,29 @@ if (await roiElement.isVisible()) {
   }
 }
 
-console.log('13. Mengambil Screenshot Bukti Visual...');
+console.log('13. Mengambil Screenshot Bukti Visual Layar Utama...');
 const screenshotPath = 'C:\\Users\\shint\\.gemini\\antigravity\\brain\\10babefe-7e2a-4e74-83a2-acb363927ee4\\browser_test_playwright.png';
 await page.screenshot({ path: screenshotPath, fullPage: true });
 console.log('   - Screenshot berhasil disimpan di:', screenshotPath);
+
+console.log('14. Menguji Modal Laporan Pemeriksaan QC (Siap Cetak / PDF)...');
+const btnReport = page.locator('#btn-open-qc-report');
+const hasBtnReport = await btnReport.isVisible();
+console.log('   - Tombol Cetak Laporan QC Tampil:', hasBtnReport);
+if (hasBtnReport) {
+  await btnReport.click();
+  await page.waitForTimeout(600);
+  const reportText = (await page.locator('body').innerText()).toUpperCase();
+  const hasCertificate = reportText.includes('SERTIFIKAT KONSISTENSI WARNA & SERAT KAYU');
+  const hasPrintBtn = await page.locator('#btn-print-qc-report').isVisible();
+  console.log('   - Modal Sertifikat QC Formal Terbuka:', hasCertificate);
+  console.log('   - Tombol Cetak / Simpan PDF Tersedia:', hasPrintBtn);
+
+  // Ambil screenshot laporan sertifikat QC
+  const reportScreenshotPath = 'C:\\Users\\shint\\.gemini\\antigravity\\brain\\10babefe-7e2a-4e74-83a2-acb363927ee4\\qc_certificate_report_verified.png';
+  await page.screenshot({ path: reportScreenshotPath, fullPage: true });
+  console.log('   - Screenshot Sertifikat QC berhasil disimpan di:', reportScreenshotPath);
+}
 
 await browser.close();
 console.log('--- PENGUJIAN PLAYWRIGHT EDGE SUKSES 100% ---');

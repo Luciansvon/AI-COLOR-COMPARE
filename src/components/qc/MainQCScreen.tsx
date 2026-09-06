@@ -16,12 +16,13 @@ import { InteractiveImageViewer } from './InteractiveImageViewer';
 import { EvidenceCard } from './EvidenceCard';
 import { CorrectionPanel } from './CorrectionPanel';
 import { DecisionModal } from './DecisionModal';
+import { QCReportModal } from './QCReportModal';
 import { extractPixelsFromImageROI, renderCorrectedPreview } from '../../utils/canvasColorExtractor';
 import { compareStats } from '../../color_science/metrics';
 import { calculateRecommendedCorrection } from '../../color_science/correction';
 import { evaluateMaterialFusion } from '../../color_science/texture';
 import { generateWoodTextureImage } from '../../utils/imageGenerator';
-import { Check, X, Upload, Sparkles, AlertTriangle, ShieldCheck, Camera, CheckCircle2, FolderOpen, Search, RefreshCw, ArrowRight } from 'lucide-react';
+import { Check, X, Upload, Sparkles, AlertTriangle, ShieldCheck, Camera, CheckCircle2, FolderOpen, Search, RefreshCw, ArrowRight, Printer } from 'lucide-react';
 
 interface MainQCScreenProps {
   currentMaster: MasterIdentity;
@@ -157,6 +158,7 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
   const [comparisonStatus, setComparisonStatus] = useState<'idle' | 'ready' | 'analyzing' | 'completed'>('idle');
   const [isRecomparing, setIsRecomparing] = useState<boolean>(false);
   const [recompareSuccess, setRecompareSuccess] = useState<boolean>(false);
+  const [isReportModalOpen, setIsReportModalOpen] = useState<boolean>(false);
 
   // 1. Muat Gambar hanya jika pengguna memilih Mode Demo Simulasi
   useEffect(() => {
@@ -1040,6 +1042,17 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
               )}
             </button>
           )}
+
+          {comparisonStatus === 'completed' && (
+            <button
+              id="btn-open-qc-report"
+              onClick={() => setIsReportModalOpen(true)}
+              className="px-5 py-3 rounded-xl bg-studio-800 hover:bg-studio-700 text-studio-200 hover:text-white border border-studio-700 text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition shadow-md active:scale-95"
+            >
+              <Printer className="w-4 h-4 text-amber-400" />
+              <span>Cetak Laporan QC</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -1183,6 +1196,22 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
         onClose={() => setFailModalOpen(false)}
         targetName={failTarget.name}
         onConfirmFail={handleConfirmFail}
+      />
+
+      {/* Modal Laporan QC Siap Cetak / Simpan PDF */}
+      <QCReportModal
+        isOpen={isReportModalOpen}
+        onClose={() => setIsReportModalOpen(false)}
+        productName={productName}
+        masterCode={currentMaster.code}
+        masterName={currentMaster.name}
+        metadata={imageMetadata}
+        rois={rois}
+        measuredMap={roiMeasured}
+        fusionMap={roiFusion}
+        decision={productDecision}
+        failReasons={productDecision === 'FAIL' ? ['Warna atau serat kayu tidak memenuhi toleransi master'] : undefined}
+        correctionParams={correctionParams}
       />
     </div>
   );
