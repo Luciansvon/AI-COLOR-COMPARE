@@ -47,6 +47,9 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # File CI permanen dibuat lewat koneksi GitHub terpisah karena token Actions
+          # tidak memiliki izin workflows. Jangan sertakan perubahan workflow di commit bot.
+          rm -f .github/workflows/ci.yml
           git add -A
           if git diff --cached --quiet; then
             echo "Tidak ada perubahan hasil patch."
