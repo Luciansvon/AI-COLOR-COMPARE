@@ -28,5 +28,6 @@
 - **Status Implementasi Terkini**:
   - **Fase P0 (Selesai 100%)**: Sains warna deterministik, proteksi berkas kamera non-destruktif (SHA-256 identik), ekspor atomik, dan database SQLite lokal.
   - **Fase P1 (Selesai 100%)**: Kecerdasan tekstur LBP (invarian terhadap lampu), deteksi sudut serat kayu Sobel, penggabungan bukti (Evidence Fusion), Patch Memory Bank (AnomalyDINO / nearest-neighbor) per kode master fisik, serta antarmuka ramah pengguna studio tanpa rumus rumit.
+  - **Alur Uji Pengguna (Pembaruan Terkini)**: Alur kerja kini bersih di awal tanpa pengecekan prematur. Tersedia tombol dan dropzone unggah foto Master acuan langsung (format JPG & RAW didukung penuh). Hasil analisis baru diproses setelah kedua foto siap.
   - **Biner Windows**: `src-tauri/target/release/studio-color-qc.exe` (9.7 MB) siap dijalankan mandiri di PC Windows studio.
   - **GitHub Remote**: Tersinkronisasi penuh di branch `main` repositori `https://github.com/Luciansvon/AI-COLOR-COMPARE`.
