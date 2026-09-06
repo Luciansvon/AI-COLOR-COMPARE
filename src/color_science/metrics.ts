@@ -128,6 +128,16 @@ export function compareStats(
     brightnessDiffPercent: Number(brightnessDiffPercent.toFixed(1)),
     contrastDiffPercent: Number(contrastDiffPercent.toFixed(1)),
     saturationDiffPercent: Number(saturationDiffPercent.toFixed(1)),
+    masterRgb: {
+      r: Math.round(masterStats.meanRgb.r),
+      g: Math.round(masterStats.meanRgb.g),
+      b: Math.round(masterStats.meanRgb.b),
+    },
+    productRgb: {
+      r: Math.round(productStats.meanRgb.r),
+      g: Math.round(productStats.meanRgb.g),
+      b: Math.round(productStats.meanRgb.b),
+    },
     clippingWarning: {
       shadowClipped,
       highlightClipped,

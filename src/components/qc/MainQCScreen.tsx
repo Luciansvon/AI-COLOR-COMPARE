@@ -961,11 +961,13 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
                 Perbandingan Per Area Produk (ROI)
               </h3>
               <span className="text-xs text-studio-400">
-                Klik area untuk fokus atau pilih tombol Lolos/Gagal per area
+                {rois.length === 1
+                  ? 'Analisis kesesuaian warna dan serat kayu pada area yang diuji'
+                  : 'Klik kartu area untuk menyorot area pada foto'}
               </span>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className={rois.length === 1 ? 'w-full' : 'grid grid-cols-1 md:grid-cols-3 gap-4'}>
               {rois.map((roi) => (
                 <EvidenceCard
                   key={roi.id}
@@ -973,8 +975,7 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
                   measured={roiMeasured[roi.id]}
                   estimated={roiEstimated[roi.id]}
                   unifiedFusion={roiFusion[roi.id]}
-                  operatorDecision={roiDecisions[roi.id]}
-                  onOperatorDecision={handleRoiDecision}
+                  isSingleArea={rois.length === 1}
                   isSelected={selectedRoiId === roi.id}
                   onSelect={() => setSelectedRoiId(roi.id)}
                 />

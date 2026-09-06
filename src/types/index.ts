@@ -36,6 +36,8 @@ export type MeasuredEvidence = {
   brightnessDiffPercent: number;
   contrastDiffPercent: number;
   saturationDiffPercent: number;
+  masterRgb?: { r: number; g: number; b: number };
+  productRgb?: { r: number; g: number; b: number };
   clippingWarning?: {
     shadowClipped: boolean;
     highlightClipped: boolean;
