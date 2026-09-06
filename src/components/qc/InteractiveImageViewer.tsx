@@ -21,7 +21,7 @@ interface InteractiveImageViewerProps {
   rois?: ROIItem[];
   selectedRoiId?: string;
   onSelectRoi?: (id: string) => void;
-  onUpdateRoiBox?: (id: string, newBox: ROIBox) => void;
+  onUpdateRoiBox?: (id: string, newBox: ROIBox, isFinal?: boolean) => void;
   roiEstimations?: Record<string, EstimatedRecommendation>;
   isMaster?: boolean;
   isPreviewingCorrection?: boolean;
@@ -85,9 +85,10 @@ export const InteractiveImageViewer: React.FC<InteractiveImageViewerProps> = ({
   // Mode Alat Interaktif: 'select' (Pilih/Geser Kotak), 'pan' (Geser Foto), 'draw' (Tarik Kotak Baru)
   const [toolMode, setToolMode] = useState<'select' | 'pan' | 'draw'>('select');
 
-  // Status Dragging Mouse
+  // Status Dragging Mouse & Ref Kotak Terakhir
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [drawingBox, setDrawingBox] = useState<ROIBox | null>(null);
+  const lastBoxRef = useRef<{ id: string; box: ROIBox } | null>(null);
 
   // Reset zoom & pan saat gambar berganti
   useEffect(() => {
@@ -162,6 +163,7 @@ export const InteractiveImageViewer: React.FC<InteractiveImageViewerProps> = ({
 
   const handleStartMoveBox = (e: React.MouseEvent, roi: ROIItem) => {
     if (!isEditableRoi || toolMode === 'pan' || toolMode === 'draw') return;
+    e.preventDefault();
     e.stopPropagation();
 
     if (!imageWrapperRef.current) return;
@@ -169,6 +171,7 @@ export const InteractiveImageViewer: React.FC<InteractiveImageViewerProps> = ({
 
     if (onSelectRoi) onSelectRoi(roi.id);
 
+    lastBoxRef.current = { id: roi.id, box: { ...roi.box } };
     setDragState({
       type: 'roi-move',
       roiId: roi.id,
@@ -186,6 +189,7 @@ export const InteractiveImageViewer: React.FC<InteractiveImageViewerProps> = ({
     currentBox: ROIBox
   ) => {
     if (!isEditableRoi) return;
+    e.preventDefault();
     e.stopPropagation();
 
     if (!imageWrapperRef.current) return;
@@ -193,6 +197,7 @@ export const InteractiveImageViewer: React.FC<InteractiveImageViewerProps> = ({
 
     if (onSelectRoi) onSelectRoi(roiId);
 
+    lastBoxRef.current = { id: roiId, box: { ...currentBox } };
     setDragState({
       type: 'roi-resize',
       roiId,
@@ -208,6 +213,7 @@ export const InteractiveImageViewer: React.FC<InteractiveImageViewerProps> = ({
     if (!imageSrc) return;
 
     if (toolMode === 'pan' || (zoomLevel > 1.0 && toolMode !== 'draw')) {
+      e.preventDefault();
       setDragState({
         type: 'pan',
         startX: e.clientX,
@@ -218,6 +224,7 @@ export const InteractiveImageViewer: React.FC<InteractiveImageViewerProps> = ({
     }
 
     if (toolMode === 'draw' && imageWrapperRef.current && isEditableRoi) {
+      e.preventDefault();
       const rect = imageWrapperRef.current.getBoundingClientRect();
       const startXPercent = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
       const startYPercent = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
@@ -242,6 +249,8 @@ export const InteractiveImageViewer: React.FC<InteractiveImageViewerProps> = ({
     if (!dragState) return;
 
     const handleGlobalMouseMove = (e: MouseEvent) => {
+      e.preventDefault();
+
       if (dragState.type === 'pan') {
         const dx = e.clientX - dragState.startX;
         const dy = e.clientY - dragState.startY;
@@ -261,11 +270,14 @@ export const InteractiveImageViewer: React.FC<InteractiveImageViewerProps> = ({
         const newX = Math.max(0, Math.min(100 - dragState.initialBox.width, dragState.initialBox.x + dPercentX));
         const newY = Math.max(0, Math.min(100 - dragState.initialBox.height, dragState.initialBox.y + dPercentY));
 
-        onUpdateRoiBox?.(dragState.roiId, {
+        const updatedBox: ROIBox = {
           ...dragState.initialBox,
           x: Number(newX.toFixed(1)),
           y: Number(newY.toFixed(1)),
-        });
+        };
+
+        lastBoxRef.current = { id: dragState.roiId, box: updatedBox };
+        onUpdateRoiBox?.(dragState.roiId, updatedBox, false);
         return;
       }
 
@@ -304,12 +316,15 @@ export const InteractiveImageViewer: React.FC<InteractiveImageViewerProps> = ({
           y = clampedY;
         }
 
-        onUpdateRoiBox?.(dragState.roiId, {
+        const updatedBox: ROIBox = {
           x: Number(x.toFixed(1)),
           y: Number(y.toFixed(1)),
           width: Number(width.toFixed(1)),
           height: Number(height.toFixed(1)),
-        });
+        };
+
+        lastBoxRef.current = { id: dragState.roiId, box: updatedBox };
+        onUpdateRoiBox?.(dragState.roiId, updatedBox, false);
         return;
       }
 
@@ -332,16 +347,23 @@ export const InteractiveImageViewer: React.FC<InteractiveImageViewerProps> = ({
     };
 
     const handleGlobalMouseUp = () => {
+      // Jika baru selesai menggeser atau mengubah ukuran kotak, kirim pembaruan final
+      if (lastBoxRef.current && onUpdateRoiBox) {
+        onUpdateRoiBox(lastBoxRef.current.id, lastBoxRef.current.box, true);
+        lastBoxRef.current = null;
+      }
+
       if (dragState.type === 'draw' && drawingBox) {
         if (drawingBox.width >= 3 && drawingBox.height >= 3) {
           const targetRoiId = selectedRoiId || rois[0]?.id;
           if (targetRoiId && onUpdateRoiBox) {
-            onUpdateRoiBox(targetRoiId, drawingBox);
+            onUpdateRoiBox(targetRoiId, drawingBox, true);
           }
         }
         setDrawingBox(null);
         setToolMode('select');
       }
+
       setDragState(null);
     };
 

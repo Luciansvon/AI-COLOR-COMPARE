@@ -172,14 +172,16 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
   };
 
   // Handler saat pengguna menggeser atau mengubah ukuran kotak area di foto
-  const handleUpdateRoiBox = (roiId: string, newBox: ROIBox) => {
+  const handleUpdateRoiBox = (roiId: string, newBox: ROIBox, isFinal: boolean = true) => {
     setRoiPreset('custom');
     const updatedRois = rois.map((r) => (r.id === roiId ? { ...r, box: newBox } : r));
     setRois(updatedRois);
 
-    // Otomatis hitung ulang perbandingan jika sudah dalam status selesai dibandingkan
-    if (comparisonStatus === 'completed' && masterImageSrc && productImageSrc) {
-      executeComparison(masterImageSrc, productImageSrc, updatedRois);
+    // Hitung ulang perbandingan HANYA saat isFinal true (saat mouse dilepas)
+    // dan gunakan silent update agar status comparisonStatus tidak berubah ke 'analyzing'
+    // yang menyebabkan layar berkedip/naik-turun (layout shift).
+    if (isFinal && comparisonStatus === 'completed' && masterImageSrc && productImageSrc) {
+      executeComparison(masterImageSrc, productImageSrc, updatedRois, true);
     }
   };
 
@@ -222,7 +224,8 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
   const executeComparison = async (
     overrideMaster?: string,
     overrideProduct?: string,
-    overrideRois?: ROIItem[]
+    overrideRois?: ROIItem[],
+    silentUpdate: boolean = false
   ) => {
     const mSrc = overrideMaster || masterImageSrc;
     const pSrc = overrideProduct || productImageSrc;
@@ -230,7 +233,11 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
 
     if (!mSrc || !pSrc) return;
 
-    setComparisonStatus('analyzing');
+    // HANYA ubah status menjadi 'analyzing' jika bukan silent update dan belum 'completed'.
+    // Ini mencegah area hasil di bawah menghilang dan menyebabkan layar naik-turun.
+    if (!silentUpdate && comparisonStatus !== 'completed') {
+      setComparisonStatus('analyzing');
+    }
 
     try {
       const measuredMap: Record<string, MeasuredEvidence> = {};
