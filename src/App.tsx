@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Header } from './components/common/Header';
 import { MainQCScreen } from './components/qc/MainQCScreen';
 import { MasterLibraryModal } from './components/master/MasterLibraryModal';
@@ -6,6 +6,12 @@ import { QCHistoryView } from './components/history/QCHistoryView';
 import { INITIAL_MASTERS } from './data/initialMasters';
 import { MasterIdentity, QCRecord } from './types';
 import { CheckCircle } from 'lucide-react';
+import {
+  getMastersFromStorage,
+  getQCRecordsFromStorage,
+  persistMasterToStorage,
+  persistQCRecordToStorage,
+} from './services/tauriBridge';
 
 export const App: React.FC = () => {
   // State Master Library
@@ -20,9 +26,26 @@ export const App: React.FC = () => {
   // State Pesan Notifikasi Sederhana
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+  // Muat data dari SQLite via Tauri saat aplikasi dibuka
+  useEffect(() => {
+    async function loadData() {
+      const storedMasters = await getMastersFromStorage();
+      if (storedMasters && storedMasters.length > 0) {
+        setMasters(storedMasters);
+        setCurrentMasterId(storedMasters[0].id);
+      }
+
+      const storedRecords = await getQCRecordsFromStorage();
+      if (storedRecords && storedRecords.length > 0) {
+        setHistoryRecords(storedRecords);
+      }
+    }
+    loadData();
+  }, []);
+
   const currentMaster = masters.find((m) => m.id === currentMasterId) || masters[0];
 
-  const handleAddNewMaster = (newMasterData: Omit<MasterIdentity, 'id' | 'createdAt'>) => {
+  const handleAddNewMaster = async (newMasterData: Omit<MasterIdentity, 'id' | 'createdAt'>) => {
     const newMaster: MasterIdentity = {
       ...newMasterData,
       id: `master-${Date.now()}`,
@@ -30,11 +53,13 @@ export const App: React.FC = () => {
     };
     setMasters((prev) => [...prev, newMaster]);
     setCurrentMasterId(newMaster.id);
-    showToast(`Master baru "${newMaster.code} — ${newMaster.name}" berhasil ditambahkan & dipilih.`);
+    await persistMasterToStorage(newMaster);
+    showToast(`Master baru "${newMaster.code} — ${newMaster.name}" berhasil ditambahkan & disimpan ke database.`);
   };
 
-  const handleSaveQCRecord = (record: QCRecord) => {
+  const handleSaveQCRecord = async (record: QCRecord) => {
     setHistoryRecords((prev) => [record, ...prev]);
+    await persistQCRecordToStorage(record);
     showToast(`Keputusan QC produk berhasil disimpan ke riwayat studio!`);
   };
 
