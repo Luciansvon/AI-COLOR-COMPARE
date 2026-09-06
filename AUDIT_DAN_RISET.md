@@ -21,7 +21,7 @@ Dokumen ini disusun sebagai bagian dari alur pengembangan berkelanjutan (*contin
 | 1 | **UI / Ekspor** | Operator studio butuh tombol satu-klik untuk mencetak/menyimpan ringkasan kartu laporan QC (format cetak bersih untuk mandor pabrik/klien). | Komponen `QCReportModal.tsx` selesai dibuat & teruji via Playwright (bukti: `qc_certificate_report_verified.png`). | **SELESAI (Siklus 2)** ✅ |
 | 2 | **Database** | Sinkronisasi riwayat QC terverifikasi di SQLite dan localStorage lokal. | Mekanisme simpan otomatis dan ekspor JSON aktif di `tauriBridge.ts` dan `QCHistoryView.tsx`. | **SELESAI (Siklus 2)** ✅ |
 | 3 | **Papan Master** | Operator studio bisa menambahkan foto sampel master fisik baru langsung dari kamera/berkas dan mengatur toleransi selisih ΔE khusus. | Formulir penambahan foto master dan toleransi mandiri aktif di `MasterLibraryModal.tsx`. | **SELESAI (Siklus 3)** ✅ |
-| 4 | **Biner .EXE** | Biner `studio-color-qc.exe` di disk saat ini masih versi sebelum penambahan fitur Papan Statistik & Peta Petak AI. | Jalankan kompilasi `cargo tauri build` dan buatkan pintasan di Desktop Mas Bima. | **Prioritas Siklus 4** ⏳ |
+| 4 | **Biner .EXE** | Biner mandiri `studio-color-qc.exe` versi release termutakhir tanpa perlu terminal/npm run. | Berhasil dikompilasi (10.18 MB) dan pintasan Desktop `Studio Color QC.lnk` siap pakai di Desktop Mas Bima. | **SELESAI (Siklus 4)** ✅ |
 
 ---
 
