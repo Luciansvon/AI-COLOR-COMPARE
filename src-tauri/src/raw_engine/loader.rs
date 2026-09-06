@@ -123,19 +123,19 @@ pub fn load_image_file(path: &Path) -> Result<LoadedImage, LoaderError> {
     let rgba_img = dyn_img.to_rgba8();
     let rgba_data = rgba_img.into_raw();
 
-    // Default metadata studio
+    // Loader ini belum mengekstrak EXIF. Jangan mengisi metadata kamera dengan nilai tebakan.
     let meta = ImageMetadata {
         file_name,
         file_size,
         width,
         height,
         format: format_str,
-        camera_model: Some("Studio Workstation Camera".to_string()),
+        camera_model: None,
         lens: None,
-        iso: Some(100),
-        shutter_speed: Some("1/160s".to_string()),
-        aperture: Some("f/8.0".to_string()),
-        white_balance: Some("Studio Daylight Custom".to_string()),
+        iso: None,
+        shutter_speed: None,
+        aperture: None,
+        white_balance: None,
     };
 
     Ok(LoadedImage {
@@ -164,7 +164,7 @@ mod tests {
 
                 if let Ok(file_bytes) = std::fs::read(path) {
                     if let Some(bytes) = extract_embedded_jpeg(&file_bytes) {
-                        let _ = std::fs::write("../public/samples/canon_sample_preview.jpg", &bytes);
+                        assert!(image::load_from_memory(&bytes).is_ok());
                     }
                 }
             } else if let Err(e) = &res {

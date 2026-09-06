@@ -67,8 +67,7 @@ impl Database {
                 "SELECT COALESCE(MAX(version), 0) FROM schema_version;",
                 [],
                 |row| row.get(0),
-            )
-            .unwrap_or(0);
+            )?;
 
         if current_version < 1 {
             // Migration 1: Master Library
@@ -130,14 +129,13 @@ impl Database {
                     "SELECT COUNT(*) FROM pragma_table_info('masters') WHERE name = 'texture_profile_json';",
                     [],
                     |row| row.get::<_, i32>(0).map(|c| c > 0),
-                )
-                .unwrap_or(false);
+                )?;
 
             if !has_col {
-                let _ = self.conn.execute(
+                self.conn.execute(
                     "ALTER TABLE masters ADD COLUMN texture_profile_json TEXT;",
                     [],
-                );
+                )?;
             }
 
             self.conn.execute(

@@ -25,8 +25,12 @@ fn get_db_path() -> PathBuf {
 
 fn main() {
     let db_path = get_db_path();
-    let db = Database::new(&db_path).unwrap_or_else(|_| {
-        Database::memory().expect("Gagal menginisialisasi database fallback memory")
+    let db = Database::new(&db_path).unwrap_or_else(|err| {
+        panic!(
+            "Gagal membuka database persisten di {}: {}. Aplikasi dihentikan agar data QC tidak diam-diam tersimpan hanya di RAM.",
+            db_path.display(),
+            err
+        )
     });
 
     let state = AppState {

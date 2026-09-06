@@ -16,6 +16,69 @@ pub struct AppState {
     pub db: Mutex<Database>,
 }
 
+fn validate_rgba_buffer(label: &str, data: &[u8]) -> Result<(), String> {
+    if data.is_empty() {
+        return Err(format!("Buffer {} kosong", label));
+    }
+    if data.len() % 4 != 0 {
+        return Err(format!(
+            "Buffer {} bukan RGBA8 valid: panjang {} bukan kelipatan 4",
+            label,
+            data.len()
+        ));
+    }
+    Ok(())
+}
+
+fn resolve_analysis_dimensions(payload: &AnalyzeRoiInput) -> Result<(usize, usize), String> {
+    validate_rgba_buffer("master", &payload.master_rgba)?;
+    validate_rgba_buffer("produk", &payload.product_rgba)?;
+
+    if payload.master_rgba.len() != payload.product_rgba.len() {
+        return Err(format!(
+            "Ukuran buffer master ({}) dan produk ({}) harus sama untuk analisis berpasangan",
+            payload.master_rgba.len(),
+            payload.product_rgba.len()
+        ));
+    }
+
+    match (payload.width, payload.height) {
+        (Some(width), Some(height)) => {
+            if width == 0 || height == 0 {
+                return Err("Lebar dan tinggi ROI harus lebih besar dari nol".to_string());
+            }
+
+            let expected_len = (width as usize)
+                .checked_mul(height as usize)
+                .and_then(|pixels| pixels.checked_mul(4))
+                .ok_or_else(|| "Dimensi ROI terlalu besar".to_string())?;
+
+            if payload.master_rgba.len() != expected_len {
+                return Err(format!(
+                    "Dimensi {}x{} membutuhkan {} byte RGBA, tetapi menerima {} byte",
+                    width,
+                    height,
+                    expected_len,
+                    payload.master_rgba.len()
+                ));
+            }
+
+            Ok((width as usize, height as usize))
+        }
+        (None, None) => {
+            let pixel_count = payload.master_rgba.len() / 4;
+            let side = (pixel_count as f64).sqrt() as usize;
+            if side.checked_mul(side) != Some(pixel_count) {
+                return Err(
+                    "width dan height wajib diberikan untuk ROI yang bukan persegi".to_string(),
+                );
+            }
+            Ok((side, side))
+        }
+        _ => Err("width dan height harus diberikan bersama-sama".to_string()),
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AnalyzeRoiInput {
     pub master_rgba: Vec<u8>,
@@ -75,6 +138,7 @@ pub fn add_master_cmd(state: State<AppState>, master: MasterRecord) -> Result<()
 
 #[tauri::command]
 pub fn analyze_roi_cmd(payload: AnalyzeRoiInput) -> Result<AnalyzeRoiOutput, String> {
+    let (w, h) = resolve_analysis_dimensions(&payload)?;
     let master_stats = extract_roi_stats(&payload.master_rgba);
     let product_stats = extract_roi_stats(&payload.product_rgba);
 
@@ -86,15 +150,7 @@ pub fn analyze_roi_cmd(payload: AnalyzeRoiInput) -> Result<AnalyzeRoiOutput, Str
         estimated.explanation.push_str(" (Perhatian: Kualitas foto master panel memiliki peringatan teknis).");
     }
 
-    let (w, h) = if let (Some(w), Some(h)) = (payload.width, payload.height) {
-        (w as usize, h as usize)
-    } else {
-        let count = payload.master_rgba.len() / 4;
-        let side = (count as f64).sqrt().round() as usize;
-        (side, side)
-    };
-
-    let texture_analysis = if w >= 4 && h >= 4 && payload.master_rgba.len() >= w * h * 4 && payload.product_rgba.len() >= w * h * 4 {
+    let texture_analysis = if w >= 4 && h >= 4 {
         Some(analyze_roi_texture_and_fusion(
             &payload.master_rgba,
             &payload.product_rgba,
@@ -118,13 +174,7 @@ pub fn analyze_roi_cmd(payload: AnalyzeRoiInput) -> Result<AnalyzeRoiOutput, Str
 
 #[tauri::command]
 pub fn analyze_texture_cmd(payload: AnalyzeRoiInput) -> Result<ComprehensiveRoiAnalysis, String> {
-    let (w, h) = if let (Some(w), Some(h)) = (payload.width, payload.height) {
-        (w as usize, h as usize)
-    } else {
-        let count = payload.master_rgba.len() / 4;
-        let side = (count as f64).sqrt().round() as usize;
-        (side, side)
-    };
+    let (w, h) = resolve_analysis_dimensions(&payload)?;
 
     if w < 4 || h < 4 {
         return Err("Ukuran ROI terlalu kecil untuk analisis tekstur (minimal 4x4 piksel)".to_string());
@@ -165,6 +215,8 @@ pub fn check_master_consistency_cmd(
     in_frame_rgba: Vec<u8>,
     separate_rgba: Vec<u8>,
 ) -> Result<MasterConsistencyOutput, String> {
+    validate_rgba_buffer("master in-frame", &in_frame_rgba)?;
+    validate_rgba_buffer("master terpisah", &separate_rgba)?;
     let in_frame_stats = extract_roi_stats(&in_frame_rgba);
     let separate_stats = extract_roi_stats(&separate_rgba);
 
@@ -192,10 +244,28 @@ pub fn list_qc_records_cmd(state: State<AppState>) -> Result<Vec<SavedQCRecord>,
 
 #[tauri::command]
 pub fn export_jpeg_cmd(payload: ExportJpegPayload) -> Result<String, String> {
+    if payload.width == 0 || payload.height == 0 {
+        return Err("Dimensi ekspor harus lebih besar dari nol".to_string());
+    }
+    let expected_len = (payload.width as usize)
+        .checked_mul(payload.height as usize)
+        .and_then(|pixels| pixels.checked_mul(3))
+        .ok_or_else(|| "Dimensi ekspor terlalu besar".to_string())?;
+    if payload.rgb_pixels.len() != expected_len {
+        return Err(format!(
+            "Buffer RGB tidak cocok dengan dimensi: butuh {} byte, menerima {}",
+            expected_len,
+            payload.rgb_pixels.len()
+        ));
+    }
+    if payload.base_filename.trim().is_empty() {
+        return Err("Nama file ekspor tidak boleh kosong".to_string());
+    }
+
     let dir = Path::new(&payload.output_directory);
     let safe_path = get_safe_export_path(dir, &payload.base_filename, "jpg");
 
-    let quality = payload.quality.unwrap_or(95);
+    let quality = payload.quality.unwrap_or(95).clamp(1, 100);
     let exported_path = export_srgb_jpeg(
         &safe_path,
         &payload.rgb_pixels,
