@@ -1,0 +1,59 @@
+name: Audit Fix Verification
+
+on:
+  push:
+    branches:
+      - audit/fix-core-reliability-20260906
+
+permissions:
+  contents: write
+
+jobs:
+  apply-and-verify:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: windows-latest
+    steps:
+      - name: Checkout cabang audit
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Siapkan Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Terapkan patch audit
+        run: python tools/apply_audit_fix.py
+
+      - name: Pasang dependensi frontend
+        run: npm ci
+
+      - name: Uji sains warna frontend
+        run: npm test
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Uji Rust core
+        run: cargo test --manifest-path src-tauri/Cargo.toml
+
+      - name: Periksa kompilasi Rust
+        run: cargo check --manifest-path src-tauri/Cargo.toml
+
+      - name: Commit hasil fix yang sudah lolos verifikasi
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # File CI permanen dibuat lewat koneksi GitHub terpisah karena token Actions
+          # tidak memiliki izin workflows. Jangan sertakan perubahan workflow di commit bot.
+          rm -f .github/workflows/ci.yml
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Tidak ada perubahan hasil patch."
+            exit 0
+          fi
+          git commit -m "fix(core): perkuat storage, upload, export, dan validasi QC"
+          git push origin HEAD:audit/fix-core-reliability-20260906

@@ -163,3 +163,38 @@ export async function renderCorrectedPreview(
   ctx.putImageData(imgData, 0, 0);
   return canvas.toDataURL('image/jpeg', 0.95);
 }
+
+
+/**
+ * Menjamin hasil ekspor benar-benar berupa byte JPEG, termasuk ketika preview
+ * belum memiliki koreksi dan sumber awalnya PNG/WebP.
+ */
+export async function convertImageToJpegDataUrl(
+  source: string,
+  quality: number = 0.95
+): Promise<string> {
+  if (!source) throw new Error('Sumber gambar ekspor kosong');
+
+  const img = await loadImage(source);
+  const width = img.naturalWidth || img.width;
+  const height = img.naturalHeight || img.height;
+  if (width <= 0 || height <= 0) throw new Error('Dimensi gambar ekspor tidak valid');
+
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Gagal mendapatkan konteks canvas untuk ekspor JPEG');
+
+  // JPEG tidak punya alpha. Gunakan putih sebagai latar yang eksplisit.
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, width, height);
+  ctx.drawImage(img, 0, 0, width, height);
+
+  const safeQuality = Math.max(0.1, Math.min(1, quality));
+  const dataUrl = canvas.toDataURL('image/jpeg', safeQuality);
+  if (!dataUrl.startsWith('data:image/jpeg')) {
+    throw new Error('Browser gagal menghasilkan data JPEG');
+  }
+  return dataUrl;
+}

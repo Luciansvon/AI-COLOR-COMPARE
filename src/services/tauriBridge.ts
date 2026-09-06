@@ -70,6 +70,11 @@ export async function persistMasterToStorage(master: MasterIdentity): Promise<bo
  * Menyimpan catatan riwayat keputusan QC ke database lokal SQLite
  */
 export async function persistQCRecordToStorage(record: QCRecord): Promise<boolean> {
+  if (!record.finalProductDecision) {
+    console.warn('[Storage] QC record ditolak karena keputusan akhir operator belum tersedia.');
+    return false;
+  }
+
   const payload = {
     id: record.id,
     session_id: record.sessionId,
@@ -81,11 +86,11 @@ export async function persistQCRecordToStorage(record: QCRecord): Promise<boolea
     rois_json: JSON.stringify(record.rois),
     global_correction_json: record.globalCorrection ? JSON.stringify(record.globalCorrection) : null,
     conflict_check_json: record.conflictCheck ? JSON.stringify(record.conflictCheck) : null,
-    final_decision: record.finalProductDecision?.decision || 'UNSET',
-    fail_reasons_json: record.finalProductDecision?.failReasons
+    final_decision: record.finalProductDecision.decision,
+    fail_reasons_json: record.finalProductDecision.failReasons.length > 0
       ? JSON.stringify(record.finalProductDecision.failReasons)
       : null,
-    operator_note: record.finalProductDecision?.note || null,
+    operator_note: record.finalProductDecision.note || null,
   };
 
   const res = await invokeTauri<void>('save_qc_record_cmd', { record: payload });

@@ -5,12 +5,13 @@ import { MasterLibraryModal } from './components/master/MasterLibraryModal';
 import { QCHistoryView } from './components/history/QCHistoryView';
 import { INITIAL_MASTERS } from './data/initialMasters';
 import { MasterIdentity, QCRecord } from './types';
-import { CheckCircle } from 'lucide-react';
+import { AlertCircle, CheckCircle } from 'lucide-react';
 import {
   getMastersFromStorage,
   getQCRecordsFromStorage,
   persistMasterToStorage,
   persistQCRecordToStorage,
+  isTauriEnvironment,
 } from './services/tauriBridge';
 
 export const App: React.FC = () => {
@@ -25,6 +26,7 @@ export const App: React.FC = () => {
 
   // State Pesan Notifikasi Sederhana
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [toastKind, setToastKind] = useState<'success' | 'error'>('success');
 
   // Muat data dari SQLite via Tauri saat aplikasi dibuka
   useEffect(() => {
@@ -51,19 +53,42 @@ export const App: React.FC = () => {
       id: `master-${Date.now()}`,
       createdAt: new Date().toISOString(),
     };
+
+    const persisted = await persistMasterToStorage(newMaster);
+    if (isTauriEnvironment() && !persisted) {
+      showToast(`Master "${newMaster.code}" gagal disimpan. Data tidak ditambahkan agar UI tidak berbeda dengan database.`, 'error');
+      return;
+    }
+
     setMasters((prev) => [...prev, newMaster]);
     setCurrentMasterId(newMaster.id);
-    await persistMasterToStorage(newMaster);
-    showToast(`Master baru "${newMaster.code} — ${newMaster.name}" berhasil ditambahkan & disimpan ke database.`);
+    showToast(
+      isTauriEnvironment()
+        ? `Master baru "${newMaster.code} — ${newMaster.name}" berhasil disimpan ke database.`
+        : `Master "${newMaster.code} — ${newMaster.name}" ditambahkan sementara untuk sesi pratinjau browser.`,
+      'success'
+    );
   };
 
-  const handleSaveQCRecord = async (record: QCRecord) => {
+  const handleSaveQCRecord = async (record: QCRecord): Promise<boolean> => {
+    const persisted = await persistQCRecordToStorage(record);
+    if (isTauriEnvironment() && !persisted) {
+      showToast('Keputusan QC gagal disimpan. Status akhir tidak akan dikunci agar data tidak menipu operator.', 'error');
+      return false;
+    }
+
     setHistoryRecords((prev) => [record, ...prev]);
-    await persistQCRecordToStorage(record);
-    showToast(`Keputusan QC produk berhasil disimpan ke riwayat studio!`);
+    showToast(
+      isTauriEnvironment()
+        ? 'Keputusan QC produk berhasil disimpan ke riwayat studio.'
+        : 'Keputusan QC tersimpan sementara di sesi pratinjau browser.',
+      'success'
+    );
+    return true;
   };
 
-  const showToast = (msg: string) => {
+  const showToast = (msg: string, kind: 'success' | 'error' = 'success') => {
+    setToastKind(kind);
     setToastMessage(msg);
     setTimeout(() => {
       setToastMessage(null);
@@ -111,8 +136,18 @@ export const App: React.FC = () => {
 
       {/* Toast Notification Sederhana */}
       {toastMessage && (
-        <div className="fixed bottom-6 right-6 z-50 bg-studio-900 border border-emerald-500/40 text-emerald-300 text-xs font-medium px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2 animate-bounce">
-          <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+        <div
+          className={`fixed bottom-6 right-6 z-50 bg-studio-900 text-xs font-medium px-4 py-3 rounded-xl shadow-2xl flex items-center gap-2 ${
+            toastKind === 'error'
+              ? 'border border-rose-500/50 text-rose-300'
+              : 'border border-emerald-500/40 text-emerald-300'
+          }`}
+        >
+          {toastKind === 'error' ? (
+            <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+          ) : (
+            <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />
+          )}
           <span>{toastMessage}</span>
         </div>
       )}

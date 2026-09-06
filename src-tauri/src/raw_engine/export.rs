@@ -15,13 +15,35 @@ impl From<io::Error> for ExportError {
     }
 }
 
+fn sanitize_export_basename(base_name: &str) -> String {
+    let cleaned: String = base_name
+        .trim()
+        .chars()
+        .map(|c| {
+            if c.is_control() || matches!(c, '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|') {
+                '_'
+            } else {
+                c
+            }
+        })
+        .collect();
+
+    let cleaned = cleaned.trim_matches(|c| c == '.' || c == ' ').to_string();
+    if cleaned.is_empty() {
+        "export".to_string()
+    } else {
+        cleaned
+    }
+}
+
 /// Menemukan path file yang aman tanpa menimpa file yang sudah ada (REQ-EXPORT-004 & File Safety)
 pub fn get_safe_export_path(base_dir: &Path, base_name: &str, extension: &str) -> PathBuf {
-    let mut candidate = base_dir.join(format!("{}.{}", base_name, extension));
+    let safe_name = sanitize_export_basename(base_name);
+    let mut candidate = base_dir.join(format!("{}.{}", safe_name, extension));
     let mut counter = 1;
 
     while candidate.exists() {
-        candidate = base_dir.join(format!("{} ({}).{}", base_name, counter, extension));
+        candidate = base_dir.join(format!("{} ({}).{}", safe_name, counter, extension));
         counter += 1;
     }
 
@@ -51,14 +73,19 @@ pub fn export_srgb_jpeg(
         chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0)
     ));
 
-    {
+    let encode_result = (|| -> Result<(), ExportError> {
         let file = File::create(&temp_path)?;
         let writer = BufWriter::new(file);
-
         let mut encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(writer, quality);
         encoder
             .encode(rgb_pixels, width, height, ColorType::Rgb8.into())
             .map_err(|e| ExportError::ImageError(e.to_string()))?;
+        Ok(())
+    })();
+
+    if let Err(err) = encode_result {
+        let _ = fs::remove_file(&temp_path);
+        return Err(err);
     }
 
     // Rename atomik ke target akhir
@@ -76,6 +103,18 @@ mod tests {
         let temp_dir = std::env::temp_dir();
         let path1 = get_safe_export_path(&temp_dir, "test_file_unique_xyz", "jpg");
         assert_eq!(path1.extension().unwrap(), "jpg");
+    }
+
+    #[test]
+    fn test_export_path_sanitizes_traversal_and_windows_chars() {
+        let temp_dir = std::env::temp_dir();
+        let path = get_safe_export_path(&temp_dir, "../folder\\bad:name", "jpg");
+        assert_eq!(path.parent().unwrap(), temp_dir.as_path());
+        let file_name = path.file_name().unwrap().to_string_lossy();
+        assert!(!file_name.contains(".."));
+        assert!(!file_name.contains('/'));
+        assert!(!file_name.contains('\\'));
+        assert!(!file_name.contains(':'));
     }
 
     #[test]

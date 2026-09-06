@@ -17,7 +17,7 @@ import { EvidenceCard } from './EvidenceCard';
 import { CorrectionPanel } from './CorrectionPanel';
 import { DecisionModal } from './DecisionModal';
 import { QCReportModal } from './QCReportModal';
-import { extractPixelsFromImageROI, renderCorrectedPreview } from '../../utils/canvasColorExtractor';
+import { convertImageToJpegDataUrl, extractPixelsFromImageROI, renderCorrectedPreview } from '../../utils/canvasColorExtractor';
 import { compareStats } from '../../color_science/metrics';
 import { calculateRecommendedCorrection } from '../../color_science/correction';
 import { evaluateMaterialFusion } from '../../color_science/texture';
@@ -26,7 +26,7 @@ import { Check, X, Upload, Sparkles, AlertTriangle, ShieldCheck, Camera, CheckCi
 
 interface MainQCScreenProps {
   currentMaster: MasterIdentity;
-  onSaveQCRecord: (record: QCRecord) => void;
+  onSaveQCRecord: (record: QCRecord) => Promise<boolean>;
 }
 
 // Default ROI untuk produk kursi furnitur (Rangka Kayu, Sandaran Tangan, Dudukan Kain Guardrail)
@@ -137,17 +137,12 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
 
   // Metadata Gambar
   const [imageMetadata, setImageMetadata] = useState<ImageMetadata>({
-    fileName: 'STUDIO_RAW_IMG_1024.CR3',
-    fileSize: 32450000,
-    format: 'Canon RAW (CR3) / Decoded Studio Buffer',
-    cameraModel: 'Canon EOS R5 Studio Workstation',
-    lens: 'RF 50mm f/1.2L USM',
-    iso: 100,
-    shutterSpeed: '1/160s',
-    aperture: 'f/8.0',
-    focalLength: '50mm',
-    whiteBalance: 'Custom Studio Daylight (5200K)',
-    capturedAt: '2026-09-06T09:15:00Z',
+    fileName: '',
+    fileSize: 0,
+    format: 'Belum ada foto',
+    cameraModel: 'Metadata kamera belum dibaca dari file ini',
+    lens: 'Tidak tersedia',
+    whiteBalance: 'Tidak tersedia',
   });
 
   // Status Proses Perbandingan:
@@ -227,12 +222,14 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
       const dataUrl = event.target?.result as string;
       setProductImageSrc(dataUrl);
       setPreviewImageSrc(dataUrl);
-      setImageMetadata((prev) => ({
-        ...prev,
+      setImageMetadata({
         fileName: file.name,
         fileSize: file.size,
-        format: file.type || 'Decoded Image File (JPG/RAW)',
-      }));
+        format: file.type || 'Berkas gambar terdekode',
+        cameraModel: 'Metadata kamera belum dibaca dari file ini',
+        lens: 'Tidak tersedia',
+        whiteBalance: 'Tidak tersedia',
+      });
       if (masterImageSrc) {
         setComparisonStatus('ready');
       } else {
@@ -247,12 +244,14 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
     overrideProduct?: string,
     overrideRois?: ROIItem[],
     silentUpdate: boolean = false,
-    overrideMasterBox?: ROIBox
+    overrideMasterBox?: ROIBox,
+    overrideScenario?: string
   ) => {
     const mSrc = overrideMaster || masterImageSrc;
     const pSrc = overrideProduct || productImageSrc;
     const activeRois = overrideRois || rois;
     const activeMasterBox = overrideMasterBox || masterRoiBox;
+    const activeScenario = overrideScenario ?? selectedScenario;
 
     if (!mSrc || !pSrc) return;
 
@@ -277,7 +276,7 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
           const res = compareStats(masterExtract.stats, prodExtract.stats);
 
           // Simulasi konflik jika pada skenario konflik: buat armrest memiliki arah berlawanan
-          if (selectedScenario === 'scenario-conflict' && roi.id === 'roi-armrest') {
+          if ((overrideScenario !== undefined || appMode === 'demo') && activeScenario === 'scenario-conflict' && roi.id === 'roi-armrest') {
             res.measured.deltaL = 12.4; // Terlalu terang
             res.measured.deltaB = -8.2; // Terlalu dingin
           }
@@ -418,42 +417,32 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
         warmthOffset: 35,
       });
     } else if (scenarioKey === 'scenario-canon-raw') {
-      // Sampel Nyata Kamera Canon RAW (.CR2) dari open dataset
+      // Sampel CR2 ditampilkan lewat JPEG preview tertanam, bukan data sensor RAW linear.
       prodImg = '/samples/canon_sample_preview.jpg';
       setImageMetadata({
-        fileName: 'sample_canon_eos1d.CR2',
+        fileName: 'sample_canon_eos1d.CR2 (embedded preview)',
         fileSize: 6953301,
-        format: 'Canon RAW (CR2) / Decoded Studio Buffer',
-        cameraModel: 'Canon EOS-1D Mark II Studio Workstation',
-        lens: 'EF 50mm f/1.4 USM',
-        iso: 200,
-        shutterSpeed: '1/250s',
-        aperture: 'f/5.6',
-        focalLength: '50mm',
-        whiteBalance: 'Custom Studio Daylight (5500K)',
-        capturedAt: '2026-09-06T10:00:00Z',
+        format: 'JPEG preview tertanam dari sampel Canon CR2; bukan decode RAW linear',
+        cameraModel: 'Tidak diverifikasi dari EXIF pada jalur demo ini',
+        lens: 'Tidak diverifikasi',
+        whiteBalance: 'Tidak diverifikasi',
       });
     } else if (scenarioKey === 'scenario-nikon-raw') {
-      // Sampel Nyata Kamera Nikon RAW (.NEF) dari open dataset
+      // Sampel NEF ditampilkan lewat JPEG preview tertanam, bukan data sensor RAW linear.
       prodImg = '/samples/nikon_sample_preview.jpg';
       setImageMetadata({
-        fileName: 'sample_nikon_1j1.NEF',
+        fileName: 'sample_nikon_1j1.NEF (embedded preview)',
         fileSize: 11254575,
-        format: 'Nikon Electronic Format (NEF) / Decoded Studio Buffer',
-        cameraModel: 'Nikon 1 J1 Studio Camera',
-        lens: '1 NIKKOR 10-30mm f/3.5-5.6 VR',
-        iso: 100,
-        shutterSpeed: '1/160s',
-        aperture: 'f/8.0',
-        focalLength: '18.5mm',
-        whiteBalance: 'Studio Flash Preset',
-        capturedAt: '2026-09-06T10:05:00Z',
+        format: 'JPEG preview tertanam dari sampel Nikon NEF; bukan decode RAW linear',
+        cameraModel: 'Tidak diverifikasi dari EXIF pada jalur demo ini',
+        lens: 'Tidak diverifikasi',
+        whiteBalance: 'Tidak diverifikasi',
       });
     }
 
     setProductImageSrc(prodImg);
     setPreviewImageSrc(prodImg);
-    executeComparison(mImg, prodImg);
+    executeComparison(mImg, prodImg, undefined, false, undefined, scenarioKey);
   };
 
   // 3. Render Preview Koreksi Non-Destruktif saat Slider Berubah
@@ -489,10 +478,10 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
   };
 
   // Handler Keputusan Produk Akhir
-  const handleProductDecision = (decision: 'PASS' | 'FAIL') => {
+  const handleProductDecision = async (decision: 'PASS' | 'FAIL') => {
     if (decision === 'PASS') {
-      setProductDecision('PASS');
-      saveFinalRecord('PASS', []);
+      const saved = await saveFinalRecord('PASS', []);
+      if (saved) setProductDecision('PASS');
     } else {
       setFailTarget({
         type: 'product',
@@ -503,7 +492,7 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
   };
 
   // Konfirmasi Alasan FAIL dari Modal
-  const handleConfirmFail = (reasons: string[], note: string) => {
+  const handleConfirmFail = async (reasons: string[], note: string) => {
     if (failTarget.type === 'roi' && failTarget.id) {
       setRoiDecisions((prev) => ({
         ...prev,
@@ -515,13 +504,13 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
         },
       }));
     } else {
-      setProductDecision('FAIL');
-      saveFinalRecord('FAIL', reasons, note);
+      const saved = await saveFinalRecord('FAIL', reasons, note);
+      if (saved) setProductDecision('FAIL');
     }
   };
 
   // Simpan Riwayat QC (REQ-HISTORY-001)
-  const saveFinalRecord = (decision: 'PASS' | 'FAIL', failReasons: string[], note?: string) => {
+  const saveFinalRecord = async (decision: 'PASS' | 'FAIL', failReasons: string[], note?: string): Promise<boolean> => {
     const record: QCRecord = {
       id: `qc-${Date.now()}`,
       sessionId: 'sess-studio-01',
@@ -547,35 +536,24 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
       },
     };
 
-    onSaveQCRecord(record);
+    return onSaveQCRecord(record);
   };
 
   // Ekspor JPEG sRGB Non-Destruktif (REQ-EXPORT-001 s/d REQ-EXPORT-005)
-  const handleExportJpeg = () => {
-    const link = document.createElement('a');
-    link.download = `${imageMetadata.fileName.replace(/\.[^/.]+$/, '')}_corrected_srgb.jpg`;
-    link.href = previewImageSrc || productImageSrc;
-    link.click();
-  };
+  const handleExportJpeg = async () => {
+    const source = previewImageSrc || productImageSrc;
+    if (!source) return;
 
-  // Handler Unggah Berkas Foto Lokal (Mendukung RAW & JPEG)
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const dataUrl = event.target?.result as string;
-      setProductImageSrc(dataUrl);
-      setPreviewImageSrc(dataUrl);
-      setImageMetadata((prev) => ({
-        ...prev,
-        fileName: file.name,
-        fileSize: file.size,
-        format: file.type || 'Decoded Image File',
-      }));
-    };
-    reader.readAsDataURL(file);
+    try {
+      const jpegDataUrl = await convertImageToJpegDataUrl(source, 0.95);
+      const baseName = (imageMetadata.fileName || 'studio_qc_export').replace(/\.[^/.]+$/, '');
+      const link = document.createElement('a');
+      link.download = `${baseName}_corrected_srgb.jpg`;
+      link.href = jpegDataUrl;
+      link.click();
+    } catch (err) {
+      console.error('Gagal mengekspor JPEG yang valid:', err);
+    }
   };
 
   return (
@@ -601,7 +579,7 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
             }`}
           >
             <Upload className="w-4 h-4" />
-            1. Mode Uji Foto Sendiri (JPG / RAW)
+            1. Mode Uji Foto Sendiri (JPG / PNG / WebP)
           </button>
 
           <button
@@ -671,7 +649,7 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
                   : 'bg-studio-950 text-studio-400 hover:text-white border border-studio-800'
               }`}
             >
-              5. Canon CR2
+              5. Canon CR2 Preview
             </button>
             <button
               onClick={() => loadScenario('scenario-nikon-raw')}
@@ -681,7 +659,7 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
                   : 'bg-studio-950 text-studio-400 hover:text-white border border-studio-800'
               }`}
             >
-              6. Nikon NEF
+              6. Nikon NEF Preview
             </button>
           </div>
         )}
@@ -859,7 +837,7 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
         {/* Kolom Kiri: Papan Master Fisik Acuan */}
         <InteractiveImageViewer
           title="1. Foto Papan Master Acuan (Kiri)"
-          subtitle={masterFileName ? `Berkas: ${masterFileName}` : 'Langkah 1: Klik kotak ini untuk memilih foto sampel master kayu (JPG/RAW)'}
+          subtitle={masterFileName ? `Berkas: ${masterFileName}` : 'Langkah 1: Klik kotak ini untuk memilih foto sampel master kayu (JPG/PNG/WebP)'}
           imageSrc={masterImageSrc}
           isMaster={true}
           rois={masterRois}
@@ -867,13 +845,13 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
           onUpdateRoiBox={(_, newBox, isFinal) => handleUpdateMasterRoiBox(newBox, isFinal)}
           isEditableRoi={true}
           onUploadImage={handleMasterUpload}
-          uploadButtonText="Pilih / Unggah Foto Master Kayu (JPG / RAW)"
+          uploadButtonText="Pilih / Unggah Foto Master Kayu (JPG / PNG / WebP)"
         />
 
         {/* Kolom Kanan: Foto Produk Studio */}
         <InteractiveImageViewer
           title="2. Foto Produk Studio yang Mau Dicek (Kanan)"
-          subtitle={imageMetadata.fileName && productImageSrc ? `Berkas: ${imageMetadata.fileName}` : 'Langkah 1: Klik kotak ini untuk memilih foto produk yang mau dicek (JPG/RAW)'}
+          subtitle={imageMetadata.fileName && productImageSrc ? `Berkas: ${imageMetadata.fileName}` : 'Langkah 1: Klik kotak ini untuk memilih foto produk yang mau dicek (JPG/PNG/WebP)'}
           imageSrc={previewImageSrc}
           rois={rois}
           selectedRoiId={selectedRoiId}
@@ -883,7 +861,7 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
           roiEstimations={roiEstimated}
           isPreviewingCorrection={isPreviewingCorrection}
           onUploadImage={handleProductUpload}
-          uploadButtonText="Pilih / Unggah Foto Produk Studio (JPG / RAW)"
+          uploadButtonText="Pilih / Unggah Foto Produk Studio (JPG / PNG / WebP)"
         />
       </div>
 
@@ -1074,14 +1052,14 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
           <div className="bg-studio-900 border border-studio-800 rounded-xl px-4 py-3 text-xs text-studio-400 flex flex-wrap items-center justify-between gap-4 font-mono">
             <div className="flex items-center space-x-2 text-studio-300">
               <Camera className="w-4 h-4 text-amber-400" />
-              <span className="font-semibold">{imageMetadata.cameraModel}</span>
+              <span className="font-semibold">{imageMetadata.cameraModel || 'Tidak tersedia'}</span>
             </div>
             <div className="flex items-center space-x-4">
-              <span>Lensa: <b className="text-studio-200">{imageMetadata.lens}</b></span>
-              <span>ISO: <b className="text-studio-200">{imageMetadata.iso}</b></span>
-              <span>Speed: <b className="text-studio-200">{imageMetadata.shutterSpeed}</b></span>
-              <span>Aperture: <b className="text-studio-200">{imageMetadata.aperture}</b></span>
-              <span>WB: <b className="text-studio-200">{imageMetadata.whiteBalance}</b></span>
+              <span>Lensa: <b className="text-studio-200">{imageMetadata.lens || 'Tidak tersedia'}</b></span>
+              <span>ISO: <b className="text-studio-200">{imageMetadata.iso ?? 'N/A'}</b></span>
+              <span>Speed: <b className="text-studio-200">{imageMetadata.shutterSpeed || 'N/A'}</b></span>
+              <span>Aperture: <b className="text-studio-200">{imageMetadata.aperture || 'N/A'}</b></span>
+              <span>WB: <b className="text-studio-200">{imageMetadata.whiteBalance || 'Tidak tersedia'}</b></span>
             </div>
           </div>
 

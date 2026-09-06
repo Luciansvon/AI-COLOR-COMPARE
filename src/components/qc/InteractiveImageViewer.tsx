@@ -30,6 +30,17 @@ interface InteractiveImageViewerProps {
   isEditableRoi?: boolean;
 }
 
+const SUPPORTED_UPLOAD_MIME = new Set(['image/jpeg', 'image/png', 'image/webp']);
+const SUPPORTED_UPLOAD_EXTENSION = /\.(jpe?g|png|webp)$/i;
+
+function validateUploadFile(file: File): string | null {
+  if (SUPPORTED_UPLOAD_MIME.has(file.type) || SUPPORTED_UPLOAD_EXTENSION.test(file.name)) {
+    return null;
+  }
+
+  return 'Format ini belum bisa diproses langsung. Gunakan JPG, PNG, atau WebP. RAW harus melalui decoder native terlebih dahulu.';
+}
+
 type DragState =
   | { type: 'pan'; startX: number; startY: number; initialPan: { x: number; y: number } }
   | {
@@ -68,7 +79,7 @@ export const InteractiveImageViewer: React.FC<InteractiveImageViewerProps> = ({
   isMaster = false,
   isPreviewingCorrection = false,
   onUploadImage,
-  uploadButtonText = 'Pilih Foto (JPG / RAW)',
+  uploadButtonText = 'Pilih Foto (JPG / PNG / WebP)',
   isEditableRoi = true,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -76,6 +87,7 @@ export const InteractiveImageViewer: React.FC<InteractiveImageViewerProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
 
   const [isDraggingFile, setIsDraggingFile] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const inputId = isMaster ? 'master-file-input' : 'product-file-input';
 
   // Status Zoom & Pan
@@ -140,7 +152,13 @@ export const InteractiveImageViewer: React.FC<InteractiveImageViewerProps> = ({
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file && onUploadImage) {
-      onUploadImage(file);
+      const validationError = validateUploadFile(file);
+      if (validationError) {
+        setUploadError(validationError);
+      } else {
+        setUploadError(null);
+        onUploadImage(file);
+      }
     }
     if (e.target) {
       e.target.value = '';
@@ -165,7 +183,13 @@ export const InteractiveImageViewer: React.FC<InteractiveImageViewerProps> = ({
     setIsDraggingFile(false);
     const file = e.dataTransfer.files?.[0];
     if (file && onUploadImage) {
-      onUploadImage(file);
+      const validationError = validateUploadFile(file);
+      if (validationError) {
+        setUploadError(validationError);
+      } else {
+        setUploadError(null);
+        onUploadImage(file);
+      }
     }
   };
 
@@ -393,7 +417,7 @@ export const InteractiveImageViewer: React.FC<InteractiveImageViewerProps> = ({
         type="file"
         id={inputId}
         ref={fileInputRef}
-        accept="image/jpeg,image/jpg,image/png,.jpg,.jpeg,.png,.cr2,.cr3,.arw,.nef,.raf,.dng,.tiff"
+        accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
         onChange={handleFileChange}
         className="hidden"
       />
@@ -704,11 +728,17 @@ export const InteractiveImageViewer: React.FC<InteractiveImageViewerProps> = ({
               Klik untuk Pilih Berkas Foto
             </div>
             <span className="text-[11px] text-studio-500 mt-2 text-center">
-              Mendukung format JPG, JPEG, PNG, dan berkas RAW kamera studio
+              Mendukung JPG, PNG, dan WebP. RAW belum diproses langsung oleh penampil ini.
             </span>
           </label>
         )}
       </div>
+
+      {uploadError && (
+        <div className="px-4 py-2.5 bg-rose-950/40 border-t border-rose-500/30 text-[11px] text-rose-300">
+          {uploadError}
+        </div>
+      )}
 
       {/* Footer Bantuan Interaktif */}
       {imageSrc && (
