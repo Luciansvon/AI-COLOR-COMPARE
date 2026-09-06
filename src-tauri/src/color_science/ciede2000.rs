@@ -148,4 +148,46 @@ mod tests {
         let de = calculate_delta_e00(&lab1, &lab2, 1.0, 1.0, 1.0);
         assert!((de - 3.4412).abs() < 0.001);
     }
+
+    #[test]
+    fn test_sharma_pair_4() {
+        let lab1 = Lab { l: 50.0000, a: -1.3802, b: -84.2814 };
+        let lab2 = Lab { l: 50.0000, a: 0.0000, b: -82.7485 };
+        let de = calculate_delta_e00(&lab1, &lab2, 1.0, 1.0, 1.0);
+        assert!((de - 1.0000).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_sharma_pair_5_unit_step() {
+        let lab1 = Lab { l: 50.0000, a: -1.1848, b: -84.8006 };
+        let lab2 = Lab { l: 50.0000, a: 0.0000, b: -82.7485 };
+        let de = calculate_delta_e00(&lab1, &lab2, 1.0, 1.0, 1.0);
+        assert!((de - 1.0000).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_sharma_pair_6_unit_step() {
+        let lab1 = Lab { l: 50.0000, a: -0.9009, b: -85.5211 };
+        let lab2 = Lab { l: 50.0000, a: 0.0000, b: -82.7485 };
+        let de = calculate_delta_e00(&lab1, &lab2, 1.0, 1.0, 1.0);
+        assert!((de - 1.0000).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_sharma_pair_7_symmetry() {
+        let lab1 = Lab { l: 50.0000, a: 0.0000, b: 0.0000 };
+        let lab2 = Lab { l: 50.0000, a: -1.0000, b: 2.0000 };
+        let de1 = calculate_delta_e00(&lab1, &lab2, 1.0, 1.0, 1.0);
+        let de2 = calculate_delta_e00(&lab2, &lab1, 1.0, 1.0, 1.0);
+        assert!((de1 - 2.3669).abs() < 0.001);
+        assert!((de2 - 2.3669).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_sharma_pair_8_near_gray() {
+        let lab1 = Lab { l: 50.0000, a: 2.4900, b: -0.0010 };
+        let lab2 = Lab { l: 50.0000, a: -2.4900, b: 0.0009 };
+        let de = calculate_delta_e00(&lab1, &lab2, 1.0, 1.0, 1.0);
+        assert!((de - 7.1792).abs() < 0.001);
+    }
 }

@@ -35,7 +35,43 @@ pub struct LoadedImage {
     pub rgba_data: Vec<u8>,
 }
 
-/// Memuat gambar (JPEG, PNG, TIFF, decoded RAW) secara aman dan non-destruktif
+/// Mencari dan mengekstrak pratinjau JPEG yang disematkan di dalam berkas RAW kamera (CR2, CR3, NEF, ARW, DNG)
+pub fn extract_embedded_jpeg(bytes: &[u8]) -> Option<Vec<u8>> {
+    let mut candidates: Vec<(usize, usize)> = Vec::new();
+    let mut i = 0;
+    while i < bytes.len().saturating_sub(3) {
+        if bytes[i] == 0xFF && bytes[i + 1] == 0xD8 && bytes[i + 2] == 0xFF {
+            let start = i;
+            let mut j = i + 2;
+            let mut found_eoi = false;
+            while j < bytes.len().saturating_sub(1) {
+                if bytes[j] == 0xFF && bytes[j + 1] == 0xD9 {
+                    candidates.push((start, j + 2));
+                    i = j + 1;
+                    found_eoi = true;
+                    break;
+                }
+                j += 1;
+            }
+            if !found_eoi {
+                break;
+            }
+        }
+        i += 1;
+    }
+
+    // Urutkan dari ukuran terbesar ke terkecil untuk mendapatkan pratinjau resolusi tertinggi yang valid
+    candidates.sort_by_key(|&(s, e)| std::cmp::Reverse(e - s));
+    for (s, e) in candidates {
+        let chunk = &bytes[s..e];
+        if image::load_from_memory(chunk).is_ok() {
+            return Some(chunk.to_vec());
+        }
+    }
+    None
+}
+
+/// Memuat gambar (JPEG, PNG, TIFF, decoded RAW, atau embedded preview RAW) secara aman dan non-destruktif
 pub fn load_image_file(path: &Path) -> Result<LoadedImage, LoaderError> {
     let file = File::open(path)?;
     let metadata = file.metadata()?;
@@ -46,15 +82,42 @@ pub fn load_image_file(path: &Path) -> Result<LoadedImage, LoaderError> {
         .unwrap_or("unknown")
         .to_string();
 
-    let reader = ImageReader::open(path)?.with_guessed_format()?;
-    let format_str = reader
-        .format()
-        .map(|f| format!("{:?}", f))
-        .unwrap_or_else(|| "Unknown".to_string());
+    let mut format_str = "Unknown".to_string();
 
-    let dyn_img: DynamicImage = reader
-        .decode()
-        .map_err(|e| LoaderError::ImageDecodeError(e.to_string()))?;
+    // 1. Coba decode langsung dengan ImageReader (untuk JPEG, PNG, TIFF, NEF)
+    let dyn_img: DynamicImage = match ImageReader::open(path)?.with_guessed_format() {
+        Ok(reader) => {
+            if let Some(f) = reader.format() {
+                format_str = format!("{:?}", f);
+            }
+            match reader.decode() {
+                Ok(img) => img,
+                Err(decode_err) => {
+                    // 2. Fallback: Ekstrak embedded preview JPEG dari dalam container RAW kamera
+                    let file_bytes = std::fs::read(path)?;
+                    if let Some(embedded_bytes) = extract_embedded_jpeg(&file_bytes) {
+                        format_str = format!("{}_EmbeddedPreview", format_str);
+                        image::load_from_memory(&embedded_bytes)
+                            .map_err(|e| LoaderError::ImageDecodeError(e.to_string()))?
+                    } else {
+                        return Err(LoaderError::ImageDecodeError(decode_err.to_string()));
+                    }
+                }
+            }
+        }
+        Err(_) => {
+            let file_bytes = std::fs::read(path)?;
+            if let Some(embedded_bytes) = extract_embedded_jpeg(&file_bytes) {
+                format_str = "RAW_EmbeddedPreview".to_string();
+                image::load_from_memory(&embedded_bytes)
+                    .map_err(|e| LoaderError::ImageDecodeError(e.to_string()))?
+            } else {
+                return Err(LoaderError::ImageDecodeError(
+                    "Format gambar tidak didukung".to_string(),
+                ));
+            }
+        }
+    };
 
     let (width, height) = dyn_img.dimensions();
     let rgba_img = dyn_img.to_rgba8();
@@ -79,4 +142,53 @@ pub fn load_image_file(path: &Path) -> Result<LoadedImage, LoaderError> {
         metadata: meta,
         rgba_data,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_load_canon_cr2() {
+        let path = Path::new("../tests/fixtures/raw/sample_canon_eos1d.CR2");
+        if path.exists() {
+            let res = load_image_file(path);
+            println!("Load CR2 result: {:?}", res.is_ok());
+            if let Ok(img) = &res {
+                println!(
+                    "CR2 Decoded Dimensions: {}x{}, Format: {}",
+                    img.metadata.width, img.metadata.height, img.metadata.format
+                );
+                assert!(img.metadata.width > 0 && img.metadata.height > 0);
+                assert!(!img.rgba_data.is_empty());
+
+                if let Ok(file_bytes) = std::fs::read(path) {
+                    if let Some(bytes) = extract_embedded_jpeg(&file_bytes) {
+                        let _ = std::fs::write("../public/samples/canon_sample_preview.jpg", &bytes);
+                    }
+                }
+            } else if let Err(e) = &res {
+                panic!("Load CR2 error: {:?}", e);
+            }
+        }
+    }
+
+    #[test]
+    fn test_load_nikon_nef() {
+        let path = Path::new("../tests/fixtures/raw/sample_nikon_1j1.NEF");
+        if path.exists() {
+            let res = load_image_file(path);
+            println!("Load NEF result: {:?}", res.is_ok());
+            if let Ok(img) = &res {
+                println!(
+                    "NEF Decoded Dimensions: {}x{}, Format: {}",
+                    img.metadata.width, img.metadata.height, img.metadata.format
+                );
+                assert!(img.metadata.width > 0 && img.metadata.height > 0);
+                assert!(!img.rgba_data.is_empty());
+            } else if let Err(e) = &res {
+                panic!("Load NEF error: {:?}", e);
+            }
+        }
+    }
 }

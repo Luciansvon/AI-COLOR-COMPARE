@@ -44,7 +44,6 @@ impl Database {
         Ok(db)
     }
 
-    #[cfg(test)]
     pub fn memory() -> Result<Self> {
         let conn = Connection::open_in_memory()?;
         let db = Database { conn };

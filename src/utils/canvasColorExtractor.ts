@@ -25,26 +25,29 @@ export async function extractStatsFromImageROI(
 ): Promise<PixelDataStats> {
   const img = typeof imageSource === 'string' ? await loadImage(imageSource) : imageSource;
 
+  const totalWidth = img.naturalWidth || img.width;
+  const totalHeight = img.naturalHeight || img.height;
+
+  // Hitung koordinat piksel berdasarkan persentase ROI
+  const pixelX = Math.round((box.x / 100) * totalWidth);
+  const pixelY = Math.round((box.y / 100) * totalHeight);
+  const pixelW = Math.max(1, Math.round((box.width / 100) * totalWidth));
+  const pixelH = Math.max(1, Math.round((box.height / 100) * totalHeight));
+
+  const clampedX = Math.max(0, Math.min(totalWidth - 1, pixelX));
+  const clampedY = Math.max(0, Math.min(totalHeight - 1, pixelY));
+  const clampedW = Math.max(1, Math.min(totalWidth - clampedX, pixelW));
+  const clampedH = Math.max(1, Math.min(totalHeight - clampedY, pixelH));
+
+  // Alokasikan canvas HANYA sebesar ukuran ROI untuk menghemat memori (CPU-first 8GB RAM)
   const canvas = document.createElement('canvas');
-  canvas.width = img.naturalWidth || img.width;
-  canvas.height = img.naturalHeight || img.height;
+  canvas.width = clampedW;
+  canvas.height = clampedH;
   const ctx = canvas.getContext('2d', { willReadFrequently: true });
   if (!ctx) throw new Error('Gagal mendapatkan konteks 2D canvas');
 
-  ctx.drawImage(img, 0, 0);
-
-  // Hitung koordinat piksel berdasarkan persentase ROI
-  const pixelX = Math.round((box.x / 100) * canvas.width);
-  const pixelY = Math.round((box.y / 100) * canvas.height);
-  const pixelW = Math.max(1, Math.round((box.width / 100) * canvas.width));
-  const pixelH = Math.max(1, Math.round((box.height / 100) * canvas.height));
-
-  const clampedX = Math.max(0, Math.min(canvas.width - 1, pixelX));
-  const clampedY = Math.max(0, Math.min(canvas.height - 1, pixelY));
-  const clampedW = Math.min(canvas.width - clampedX, pixelW);
-  const clampedH = Math.min(canvas.height - clampedY, pixelH);
-
-  const imageData = ctx.getImageData(clampedX, clampedY, clampedW, clampedH);
+  ctx.drawImage(img, clampedX, clampedY, clampedW, clampedH, 0, 0, clampedW, clampedH);
+  const imageData = ctx.getImageData(0, 0, clampedW, clampedH);
   return extractROIStats(imageData.data);
 }
 

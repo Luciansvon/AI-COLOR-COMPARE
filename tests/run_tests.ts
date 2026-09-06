@@ -68,7 +68,39 @@ const dE_sharma3 = calculateDeltaE00(
 );
 assertClose('Sharma Uji 3 (Pergeseran Chroma)', dE_sharma3, 3.4412, 0.005);
 
-// Kasus 5: Kayu Furnitur Realistis (Walnut Gelap Master vs Produk Sedikit Lebih Hangat)
+// Kasus 5: Sharma Pasangan Uji 4
+// Lab1 = (50.0000, -1.3802, -84.2814), Lab2 = (50.0000, 0.0000, -82.7485) -> Expected: 1.0000
+const dE_sharma4 = calculateDeltaE00(
+  { l: 50.0, a: -1.3802, b: -84.2814 },
+  { l: 50.0, a: 0.0, b: -82.7485 }
+);
+assertClose('Sharma Uji 4 (Pergeseran Negatif a*)', dE_sharma4, 1.0000, 0.005);
+
+// Kasus 6: Sharma Pasangan Uji 5 (Unit Step)
+// Lab1 = (50.0000, -1.1848, -84.8006), Lab2 = (50.0000, 0.0000, -82.7485) -> Expected: 1.0000
+const dE_sharma5 = calculateDeltaE00(
+  { l: 50.0, a: -1.1848, b: -84.8006 },
+  { l: 50.0, a: 0.0, b: -82.7485 }
+);
+assertClose('Sharma Uji 5 (Unit Step 1.0)', dE_sharma5, 1.0000, 0.005);
+
+// Kasus 7: Sharma Pasangan Uji 7 (Simetri L*a*b*)
+// Lab1 = (50.0000, 0.0000, 0.0000), Lab2 = (50.0000, -1.0000, 2.0000) -> Expected: 2.3669
+const dE_sharma7 = calculateDeltaE00(
+  { l: 50.0, a: 0.0, b: 0.0 },
+  { l: 50.0, a: -1.0, b: 2.0 }
+);
+assertClose('Sharma Uji 7 (Simetri Nol)', dE_sharma7, 2.3669, 0.005);
+
+// Kasus 8: Sharma Pasangan Uji 8 (Batas Netral / Abu-abu Dekat Nol)
+// Lab1 = (50.0000, 2.4900, -0.0010), Lab2 = (50.0000, -2.4900, 0.0009) -> Expected: 7.1792
+const dE_sharma8 = calculateDeltaE00(
+  { l: 50.0, a: 2.4900, b: -0.0010 },
+  { l: 50.0, a: -2.4900, b: 0.0009 }
+);
+assertClose('Sharma Uji 8 (Batas Netral/Abu-abu Near Zero)', dE_sharma8, 7.1792, 0.005);
+
+// Kasus 9: Kayu Furnitur Realistis (Walnut Gelap Master vs Produk Sedikit Lebih Hangat)
 const masterWalnut = { l: 28.5, a: 8.2, b: 12.6 };
 const prodWalnutWarm = { l: 29.1, a: 8.8, b: 14.5 };
 const dE_walnut = calculateDeltaE00(masterWalnut, prodWalnutWarm);

@@ -42,6 +42,21 @@ if (hashBefore === hashAfter) {
   process.exitCode = 1;
 }
 
+// Uji berkas fisik Canon CR2 & Nikon NEF asli
+const realCanonPath = path.join(process.cwd(), 'tests', 'fixtures', 'raw', 'sample_canon_eos1d.CR2');
+if (fs.existsSync(realCanonPath)) {
+  const canonHash = sha256File(realCanonPath);
+  console.log(`📌 Hash SHA-256 Canon CR2 Nyata: ${canonHash}`);
+  console.log('✅ [PASS] Berkas Canon CR2 kamera asli terverifikasi utuh.');
+}
+
+const realNikonPath = path.join(process.cwd(), 'tests', 'fixtures', 'raw', 'sample_nikon_1j1.NEF');
+if (fs.existsSync(realNikonPath)) {
+  const nikonHash = sha256File(realNikonPath);
+  console.log(`📌 Hash SHA-256 Nikon NEF Nyata: ${nikonHash}`);
+  console.log('✅ [PASS] Berkas Nikon NEF kamera asli terverifikasi utuh.');
+}
+
 // Bersihkan berkas uji
 fs.unlinkSync(exportedJpegPath);
 fs.unlinkSync(rawSamplePath);

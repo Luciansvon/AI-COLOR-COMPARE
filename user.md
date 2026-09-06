@@ -17,7 +17,7 @@
 ## Proyek: Studio Color Consistency & Material QC System
 - **Tujuan**: Membantu studio foto furnitur mengecek apakah warna produk di foto sesuai dengan sampel kayu fisik asli (master panel), membedakan apakah selisih warna akibat pencahayaan/setting kamera atau memang bahannya yang beda.
 - **Peran Bima**: Operator / pengambil keputusan utama (keputusan PASS/FAIL akhir ada di tangan manusia).
-- **Kondisi Teknis Studio**: Bima belum hafal/lupa tipe kamera dan format RAW studio, saat ini sedang libur di rumah.
+- **Kondisi Teknis Studio**: Bima belum hafal/lupa tipe kamera dan format RAW studio, saat ini sedang libur di rumah. Bima menyarankan mengunduh berkas RAW sampel kamera nyata dari internet (open dataset) agar pengujian tetap bisa berjalan tanpa harus menunggu kembali ke studio fisik.
 - **Strategi AI & Arsitektur (Sudah Ditetapkan & Divalidasi Komunitas)**:
   - **Tahap P0**: Tanpa AI (100% perhitungan matematika warna murni: Lab, ΔE00, kecerahan, kontras, saturasi, relative WB/eksposur).
   - **Tahap P1 (Model Visual Unggulan)**:

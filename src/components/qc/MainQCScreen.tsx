@@ -155,6 +155,38 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
         brightnessOffset: 12,
         warmthOffset: 35,
       });
+    } else if (scenarioKey === 'scenario-canon-raw') {
+      // Sampel Nyata Kamera Canon RAW (.CR2) dari open dataset
+      prodImg = '/samples/canon_sample_preview.jpg';
+      setImageMetadata({
+        fileName: 'sample_canon_eos1d.CR2',
+        fileSize: 6953301,
+        format: 'Canon RAW (CR2) / Decoded Studio Buffer',
+        cameraModel: 'Canon EOS-1D Mark II Studio Workstation',
+        lens: 'EF 50mm f/1.4 USM',
+        iso: 200,
+        shutterSpeed: '1/250s',
+        aperture: 'f/5.6',
+        focalLength: '50mm',
+        whiteBalance: 'Custom Studio Daylight (5500K)',
+        capturedAt: '2026-09-06T10:00:00Z',
+      });
+    } else if (scenarioKey === 'scenario-nikon-raw') {
+      // Sampel Nyata Kamera Nikon RAW (.NEF) dari open dataset
+      prodImg = '/samples/nikon_sample_preview.jpg';
+      setImageMetadata({
+        fileName: 'sample_nikon_1j1.NEF',
+        fileSize: 11254575,
+        format: 'Nikon Electronic Format (NEF) / Decoded Studio Buffer',
+        cameraModel: 'Nikon 1 J1 Studio Camera',
+        lens: '1 NIKKOR 10-30mm f/3.5-5.6 VR',
+        iso: 100,
+        shutterSpeed: '1/160s',
+        aperture: 'f/8.0',
+        focalLength: '18.5mm',
+        whiteBalance: 'Studio Flash Preset',
+        capturedAt: '2026-09-06T10:05:00Z',
+      });
     }
 
     setProductImageSrc(prodImg);
@@ -407,6 +439,26 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
               }`}
             >
               4. Uji Konflik Koreksi
+            </button>
+            <button
+              onClick={() => loadScenario('scenario-canon-raw')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+                selectedScenario === 'scenario-canon-raw'
+                  ? 'bg-sky-500/20 text-sky-300 border border-sky-500/40'
+                  : 'bg-studio-950 text-studio-400 hover:text-white border border-studio-800'
+              }`}
+            >
+              5. Canon Asli (.CR2)
+            </button>
+            <button
+              onClick={() => loadScenario('scenario-nikon-raw')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
+                selectedScenario === 'scenario-nikon-raw'
+                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                  : 'bg-studio-950 text-studio-400 hover:text-white border border-studio-800'
+              }`}
+            >
+              6. Nikon Asli (.NEF)
             </button>
           </div>
         </div>
