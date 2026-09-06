@@ -47,5 +47,5 @@ fn main() {
             export_jpeg_cmd,
         ])
         .run(tauri::generate_context!())
-        .expect("Terjadi kesalahan saat menjalankan aplikasi Tauri Studio Color QC");
+        .expect("Gagal menjalankan aplikasi Studio Color QC");
 }

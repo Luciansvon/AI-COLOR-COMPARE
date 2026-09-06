@@ -12,6 +12,7 @@
   "app": {
     "windows": [
       {
+        "label": "main",
         "title": "Studio Color Consistency & Material QC System",
         "width": 1380,
         "height": 900,
