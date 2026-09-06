@@ -670,16 +670,26 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
             </p>
           </div>
           <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
-            <span className={`px-3 py-1.5 rounded-lg text-xs font-semibold border ${
-              masterImageSrc ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30' : 'bg-studio-900 text-studio-400 border-studio-800'
-            }`}>
-              {masterImageSrc ? `✅ Master Terpasang: ${masterFileName}` : '⏳ 1. Masukkan Foto Master di Kiri'}
-            </span>
-            <span className={`px-3 py-1.5 rounded-lg text-xs font-semibold border ${
-              productImageSrc ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30' : 'bg-studio-900 text-studio-400 border-studio-800'
-            }`}>
-              {productImageSrc ? `✅ Produk Terpasang: ${imageMetadata.fileName}` : '⏳ 2. Masukkan Foto Produk di Kanan'}
-            </span>
+            <label
+              htmlFor="master-file-input"
+              className={`px-4 py-2.5 rounded-xl text-xs font-bold border cursor-pointer transition flex items-center gap-2 ${
+                masterImageSrc
+                  ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30'
+                  : 'bg-amber-500/20 text-amber-300 hover:bg-amber-500 hover:text-black border-amber-500/40 shadow-md'
+              }`}
+            >
+              {masterImageSrc ? `✅ Master Terpasang: ${masterFileName}` : '📁 1. Klik untuk Masukkan Foto Master (Kiri)'}
+            </label>
+            <label
+              htmlFor="product-file-input"
+              className={`px-4 py-2.5 rounded-xl text-xs font-bold border cursor-pointer transition flex items-center gap-2 ${
+                productImageSrc
+                  ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30'
+                  : 'bg-sky-500/20 text-sky-300 hover:bg-sky-500 hover:text-white border-sky-500/40 shadow-md'
+              }`}
+            >
+              {productImageSrc ? `✅ Produk Terpasang: ${imageMetadata.fileName}` : '📁 2. Klik untuk Masukkan Foto Produk (Kanan)'}
+            </label>
           </div>
         </div>
       )}
