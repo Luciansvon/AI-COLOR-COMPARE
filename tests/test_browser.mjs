@@ -1,4 +1,4 @@
-﻿import { chromium } from 'playwright';
+import { chromium } from 'playwright';
 import fs from 'fs';
 
 console.log('--- MEMULAI PENGUJIAN PLAYWRIGHT DENGAN EDGE ---');
@@ -49,23 +49,37 @@ await page.setInputFiles('#master-file-input', sampleJpgMaster);
 console.log('6. Mengunggah foto Produk JPG (#product-file-input)...');
 await page.setInputFiles('#product-file-input', sampleJpgProduct);
 
-console.log('7. Menunggu proses perbandingan dan rendering selesai...');
-await page.waitForTimeout(3000);
+await page.waitForTimeout(1000);
+
+// Verifikasi status berubah jadi Siap Dibandingkan
+const readyText = await page.locator('body').innerText();
+const isReadyToCompare = readyText.includes('Siap Dibandingkan');
+console.log('7. Status berubah menjadi Siap Dibandingkan:', isReadyToCompare);
+
+// Klik tombol Bandingkan Sekarang
+console.log('8. Mengklik tombol #btn-start-compare ("KLIK UNTUK BANDINGKAN SEKARANG")...');
+await page.click('#btn-start-compare');
+
+console.log('9. Menunggu proses ekstraksi piksel dan analisis selesai...');
+await page.waitForSelector('#btn-recompare', { timeout: 10000 });
 
 const afterUploadText = await page.locator('body').innerText();
 const hasSuccessBanner = afterUploadText.includes('Foto Master dan Foto Produk berhasil dimuat');
 const hasPassBtn = afterUploadText.includes('PASS (PRODUK LOLOS)');
 const hasFailBtn = afterUploadText.includes('FAIL (PRODUK GAGAL)');
+const hasCompletedStatus = afterUploadText.includes('Selesai Dibandingkan');
 
-console.log('8. Hasil Pasca Upload:');
+console.log('10. Hasil Pasca Bandingkan:');
+console.log('   - Indikator Status Selesai Dibandingkan:', hasCompletedStatus);
 console.log('   - Banner Sukses Hijau Tampil:', hasSuccessBanner);
 console.log('   - Tombol Keputusan PASS Tampil:', hasPassBtn);
 console.log('   - Tombol Keputusan FAIL Tampil:', hasFailBtn);
 
-console.log('9. Mengambil Screenshot Bukti Visual...');
+console.log('11. Mengambil Screenshot Bukti Visual...');
 const screenshotPath = 'C:\\Users\\shint\\.gemini\\antigravity\\brain\\10babefe-7e2a-4e74-83a2-acb363927ee4\\browser_test_playwright.png';
 await page.screenshot({ path: screenshotPath, fullPage: true });
 console.log('   - Screenshot berhasil disimpan di:', screenshotPath);
 
 await browser.close();
 console.log('--- PENGUJIAN PLAYWRIGHT EDGE SUKSES 100% ---');
+

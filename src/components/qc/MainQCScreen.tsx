@@ -20,7 +20,7 @@ import { compareStats } from '../../color_science/metrics';
 import { calculateRecommendedCorrection } from '../../color_science/correction';
 import { evaluateMaterialFusion } from '../../color_science/texture';
 import { generateWoodTextureImage } from '../../utils/imageGenerator';
-import { Check, X, Upload, Sparkles, AlertTriangle, ShieldCheck, Camera, CheckCircle2, FolderOpen } from 'lucide-react';
+import { Check, X, Upload, Sparkles, AlertTriangle, ShieldCheck, Camera, CheckCircle2, FolderOpen, Search, RefreshCw, ArrowRight } from 'lucide-react';
 
 interface MainQCScreenProps {
   currentMaster: MasterIdentity;
@@ -138,6 +138,13 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
     capturedAt: '2026-09-06T09:15:00Z',
   });
 
+  // Status Proses Perbandingan:
+  // 'idle' (Foto belum lengkap)
+  // 'ready' (Foto sudah lengkap, siap ditekan tombolnya)
+  // 'analyzing' (Sedang memeriksa piksel warna & tekstur)
+  // 'completed' (Selesai dibandingkan, hasil siap dilihat)
+  const [comparisonStatus, setComparisonStatus] = useState<'idle' | 'ready' | 'analyzing' | 'completed'>('idle');
+
   // 1. Muat Gambar hanya jika pengguna memilih Mode Demo Simulasi
   useEffect(() => {
     if (appMode === 'demo') {
@@ -155,6 +162,9 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
     const newRois = ROI_PRESETS[preset];
     setRois(newRois);
     setSelectedRoiId(newRois[0].id);
+    if (comparisonStatus === 'completed' && masterImageSrc && productImageSrc) {
+      executeComparison(masterImageSrc, productImageSrc, newRois);
+    }
   };
 
   const handleMasterUpload = (file: File) => {
@@ -163,6 +173,11 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
       const dataUrl = event.target?.result as string;
       setMasterImageSrc(dataUrl);
       setMasterFileName(file.name);
+      if (productImageSrc) {
+        setComparisonStatus('ready');
+      } else {
+        setComparisonStatus('idle');
+      }
     };
     reader.readAsDataURL(file);
   };
@@ -179,19 +194,128 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
         fileSize: file.size,
         format: file.type || 'Decoded Image File (JPG/RAW)',
       }));
+      if (masterImageSrc) {
+        setComparisonStatus('ready');
+      } else {
+        setComparisonStatus('idle');
+      }
     };
     reader.readAsDataURL(file);
+  };
+
+  const executeComparison = async (
+    overrideMaster?: string,
+    overrideProduct?: string,
+    overrideRois?: ROIItem[]
+  ) => {
+    const mSrc = overrideMaster || masterImageSrc;
+    const pSrc = overrideProduct || productImageSrc;
+    const activeRois = overrideRois || rois;
+
+    if (!mSrc || !pSrc) return;
+
+    setComparisonStatus('analyzing');
+
+    try {
+      const measuredMap: Record<string, MeasuredEvidence> = {};
+      const estimatedMap: Record<string, EstimatedRecommendation> = {};
+      const fusionMap: Record<string, UnifiedMaterialReport> = {};
+
+      // Ambil piksel dan statistik master panel (area tengah papan master)
+      const masterExtract = await extractPixelsFromImageROI(mSrc, {
+        x: 25,
+        y: 25,
+        width: 50,
+        height: 50,
+      });
+
+      for (const roi of activeRois) {
+        const prodExtract = await extractPixelsFromImageROI(pSrc, roi.box);
+
+        if (roi.role === 'master_backed') {
+          const res = compareStats(masterExtract.stats, prodExtract.stats);
+
+          // Simulasi konflik jika pada skenario konflik: buat armrest memiliki arah berlawanan
+          if (selectedScenario === 'scenario-conflict' && roi.id === 'roi-armrest') {
+            res.measured.deltaL = 12.4; // Terlalu terang
+            res.measured.deltaB = -8.2; // Terlalu dingin
+          }
+
+          // Analisis Penggabungan Bukti Tekstur & Serat Kayu (Fase P1)
+          const fusion = evaluateMaterialFusion(
+            res.measured,
+            masterExtract.data,
+            prodExtract.data,
+            masterExtract.width,
+            masterExtract.height,
+            prodExtract.width,
+            prodExtract.height
+          );
+
+          fusionMap[roi.id] = fusion;
+          measuredMap[roi.id] = res.measured;
+          estimatedMap[roi.id] = res.estimated;
+        } else {
+          // No Master (Guardrail Only): Rekam statistik tanpa skor perbandingan material
+          measuredMap[roi.id] = {
+            deltaE00: 0,
+            deltaL: 0,
+            deltaA: 0,
+            deltaB: 0,
+            masterBrightness: 0,
+            productBrightness: Number(prodExtract.stats.brightness.toFixed(1)),
+            brightnessDiffPercent: 0,
+            contrastDiffPercent: 0,
+            saturationDiffPercent: 0,
+            clippingWarning: {
+              shadowClipped: prodExtract.stats.shadowClippingRatio > 0.05,
+              highlightClipped: prodExtract.stats.highlightClippingRatio > 0.05,
+            },
+          };
+        }
+      }
+
+      setRoiMeasured(measuredMap);
+      setRoiEstimated(estimatedMap);
+      setRoiFusion(fusionMap);
+
+      // Hitung rekomendasi koreksi global dan deteksi konflik
+      const pairs = activeRois.map((r) => ({ roi: r, measured: measuredMap[r.id] }));
+      const corrResult = calculateRecommendedCorrection(pairs);
+      setRecommendedCorrection(corrResult.recommended);
+      setCorrectionConflict(corrResult.conflict);
+
+      // Set default slider ke rekomendasi jika tidak konflik
+      if (!corrResult.conflict.hasConflict) {
+        setCorrectionParams(corrResult.recommended);
+      } else {
+        setCorrectionParams({
+          temperatureK: 0,
+          tint: 0,
+          exposureEV: 0,
+          brightness: 0,
+          contrast: 0,
+          saturation: 0,
+        });
+      }
+
+      setComparisonStatus('completed');
+    } catch (err) {
+      console.error('Gagal melakukan ekstraksi dan perbandingan piksel:', err);
+      setComparisonStatus('ready');
+    }
   };
 
   const loadScenario = (scenarioKey: string) => {
     setSelectedScenario(scenarioKey);
     setIsPreviewingCorrection(false);
     setAppMode('demo');
-    if (!masterImageSrc) {
-      const masterImg = generateWoodTextureImage('#3d2b1f', '#24170f', {
+    let mImg = masterImageSrc;
+    if (!mImg) {
+      mImg = generateWoodTextureImage('#3d2b1f', '#24170f', {
         isChairComposition: false,
       });
-      setMasterImageSrc(masterImg);
+      setMasterImageSrc(mImg);
       setMasterFileName(`${currentMaster.code}_simulasi_master.png`);
     }
 
@@ -260,103 +384,8 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
 
     setProductImageSrc(prodImg);
     setPreviewImageSrc(prodImg);
+    executeComparison(mImg, prodImg);
   };
-
-  // 2. Jalankan Analisis Setiap Kali Gambar atau Master Berubah
-  useEffect(() => {
-    if (!masterImageSrc || !productImageSrc) {
-      setRoiMeasured({});
-      setRoiEstimated({});
-      setRoiFusion({});
-      return;
-    }
-
-    const runAnalysis = async () => {
-      const measuredMap: Record<string, MeasuredEvidence> = {};
-      const estimatedMap: Record<string, EstimatedRecommendation> = {};
-      const fusionMap: Record<string, UnifiedMaterialReport> = {};
-
-      // Ambil piksel dan statistik master panel (area tengah papan master)
-      const masterExtract = await extractPixelsFromImageROI(masterImageSrc, {
-        x: 25,
-        y: 25,
-        width: 50,
-        height: 50,
-      });
-
-      for (const roi of rois) {
-        const prodExtract = await extractPixelsFromImageROI(productImageSrc, roi.box);
-
-        if (roi.role === 'master_backed') {
-          const res = compareStats(masterExtract.stats, prodExtract.stats);
-
-          // Simulasi konflik jika pada skenario konflik: buat armrest memiliki arah berlawanan
-          if (selectedScenario === 'scenario-conflict' && roi.id === 'roi-armrest') {
-            res.measured.deltaL = 12.4; // Terlalu terang
-            res.measured.deltaB = -8.2; // Terlalu dingin
-          }
-
-          // Analisis Penggabungan Bukti Tekstur & Serat Kayu (Fase P1)
-          const fusion = evaluateMaterialFusion(
-            res.measured,
-            masterExtract.data,
-            prodExtract.data,
-            masterExtract.width,
-            masterExtract.height,
-            prodExtract.width,
-            prodExtract.height
-          );
-
-          fusionMap[roi.id] = fusion;
-          measuredMap[roi.id] = res.measured;
-          estimatedMap[roi.id] = res.estimated;
-        } else {
-          // No Master (Guardrail Only): Rekam statistik tanpa skor perbandingan material
-          measuredMap[roi.id] = {
-            deltaE00: 0,
-            deltaL: 0,
-            deltaA: 0,
-            deltaB: 0,
-            masterBrightness: 0,
-            productBrightness: Number(prodExtract.stats.brightness.toFixed(1)),
-            brightnessDiffPercent: 0,
-            contrastDiffPercent: 0,
-            saturationDiffPercent: 0,
-            clippingWarning: {
-              shadowClipped: prodExtract.stats.shadowClippingRatio > 0.05,
-              highlightClipped: prodExtract.stats.highlightClippingRatio > 0.05,
-            },
-          };
-        }
-      }
-
-      setRoiMeasured(measuredMap);
-      setRoiEstimated(estimatedMap);
-      setRoiFusion(fusionMap);
-
-      // Hitung rekomendasi koreksi global dan deteksi konflik
-      const pairs = rois.map((r) => ({ roi: r, measured: measuredMap[r.id] }));
-      const corrResult = calculateRecommendedCorrection(pairs);
-      setRecommendedCorrection(corrResult.recommended);
-      setCorrectionConflict(corrResult.conflict);
-
-      // Set default slider ke rekomendasi jika tidak konflik
-      if (!corrResult.conflict.hasConflict) {
-        setCorrectionParams(corrResult.recommended);
-      } else {
-        setCorrectionParams({
-          temperatureK: 0,
-          tint: 0,
-          exposureEV: 0,
-          brightness: 0,
-          contrast: 0,
-          saturation: 0,
-        });
-      }
-    };
-
-    runAnalysis();
-  }, [masterImageSrc, productImageSrc, selectedScenario, rois]);
 
   // 3. Render Preview Koreksi Non-Destruktif saat Slider Berubah
   useEffect(() => {
@@ -628,12 +657,130 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
         )}
       </div>
 
+      {/* Bilah Alur Kerja 3 Langkah Studio (Studio Workflow Stepper) */}
+      <div className="bg-studio-900/90 border border-studio-800 rounded-2xl p-4 shadow-lg">
+        <div className="flex flex-col md:flex-row items-center justify-between gap-3">
+          {/* Langkah 1 */}
+          <div
+            className={`flex items-center space-x-3 w-full md:w-1/3 p-3 rounded-xl border transition-all ${
+              masterImageSrc && productImageSrc
+                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                : 'bg-studio-950/60 border-amber-500/40 text-amber-300'
+            }`}
+          >
+            <div
+              className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
+                masterImageSrc && productImageSrc
+                  ? 'bg-emerald-500 text-black'
+                  : 'bg-amber-500 text-black'
+              }`}
+            >
+              {masterImageSrc && productImageSrc ? '✓' : '1'}
+            </div>
+            <div className="min-w-0">
+              <div className="text-[10px] uppercase tracking-wider font-semibold opacity-75">
+                Langkah 1
+              </div>
+              <div className="text-xs font-bold truncate">
+                {masterImageSrc && productImageSrc
+                  ? 'Foto Siap (Master & Produk)'
+                  : 'Masukkan Dua Foto (Kiri & Kanan)'}
+              </div>
+            </div>
+          </div>
+
+          <div className="hidden md:block text-studio-600 font-bold text-sm">
+            <ArrowRight className="w-4 h-4" />
+          </div>
+
+          {/* Langkah 2 */}
+          <div
+            className={`flex items-center space-x-3 w-full md:w-1/3 p-3 rounded-xl border transition-all ${
+              comparisonStatus === 'completed'
+                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                : comparisonStatus === 'ready'
+                ? 'bg-amber-500/20 border-amber-500/50 text-amber-200 animate-pulse'
+                : comparisonStatus === 'analyzing'
+                ? 'bg-sky-500/10 border-sky-500/30 text-sky-300'
+                : 'bg-studio-950/40 border-studio-800 text-studio-500'
+            }`}
+          >
+            <div
+              className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
+                comparisonStatus === 'completed'
+                  ? 'bg-emerald-500 text-black'
+                  : comparisonStatus === 'ready'
+                  ? 'bg-amber-500 text-black'
+                  : 'bg-studio-800 text-studio-400'
+              }`}
+            >
+              {comparisonStatus === 'completed' ? '✓' : '2'}
+            </div>
+            <div className="min-w-0">
+              <div className="text-[10px] uppercase tracking-wider font-semibold opacity-75">
+                Langkah 2
+              </div>
+              <div className="text-xs font-bold truncate">
+                {comparisonStatus === 'completed'
+                  ? 'Selesai Dibandingkan'
+                  : comparisonStatus === 'analyzing'
+                  ? 'Sedang Memeriksa Piksel...'
+                  : comparisonStatus === 'ready'
+                  ? 'Siap Ditekan (Bandingkan)'
+                  : 'Tekan Tombol Bandingkan'}
+              </div>
+            </div>
+          </div>
+
+          <div className="hidden md:block text-studio-600 font-bold text-sm">
+            <ArrowRight className="w-4 h-4" />
+          </div>
+
+          {/* Langkah 3 */}
+          <div
+            className={`flex items-center space-x-3 w-full md:w-1/3 p-3 rounded-xl border transition-all ${
+              productDecision
+                ? productDecision === 'PASS'
+                  ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300'
+                  : 'bg-rose-500/20 border-rose-500/40 text-rose-300'
+                : comparisonStatus === 'completed'
+                ? 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+                : 'bg-studio-950/40 border-studio-800 text-studio-500'
+            }`}
+          >
+            <div
+              className={`w-7 h-7 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
+                productDecision
+                  ? productDecision === 'PASS'
+                    ? 'bg-emerald-500 text-black'
+                    : 'bg-rose-500 text-white'
+                  : 'bg-studio-800 text-studio-400'
+              }`}
+            >
+              {productDecision ? '✓' : '3'}
+            </div>
+            <div className="min-w-0">
+              <div className="text-[10px] uppercase tracking-wider font-semibold opacity-75">
+                Langkah 3
+              </div>
+              <div className="text-xs font-bold truncate">
+                {productDecision
+                  ? `Keputusan: ${productDecision === 'PASS' ? 'Lolos (PASS)' : 'Gagal (FAIL)'}`
+                  : comparisonStatus === 'completed'
+                  ? 'Tentukan Keputusan Studio'
+                  : 'Keputusan Akhir (PASS/FAIL)'}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Grid 2 Penampil Gambar (Master vs Produk) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Kolom Kiri: Papan Master Fisik Acuan */}
         <InteractiveImageViewer
-          title="Foto Papan Master Acuan"
-          subtitle={masterFileName ? `Berkas: ${masterFileName}` : 'Klik kotak untuk memilih foto master kayu (JPG/RAW)'}
+          title="1. Foto Papan Master Acuan (Kiri)"
+          subtitle={masterFileName ? `Berkas: ${masterFileName}` : 'Langkah 1: Klik kotak ini untuk memilih foto sampel master kayu (JPG/RAW)'}
           imageSrc={masterImageSrc}
           isMaster={true}
           onUploadImage={handleMasterUpload}
@@ -642,8 +789,8 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
 
         {/* Kolom Kanan: Foto Produk Studio */}
         <InteractiveImageViewer
-          title="Foto Produk Studio yang Mau Dicek"
-          subtitle={imageMetadata.fileName && productImageSrc ? `Berkas: ${imageMetadata.fileName}` : 'Klik kotak untuk memilih foto produk yang mau dicek (JPG/RAW)'}
+          title="2. Foto Produk Studio yang Mau Dicek (Kanan)"
+          subtitle={imageMetadata.fileName && productImageSrc ? `Berkas: ${imageMetadata.fileName}` : 'Langkah 1: Klik kotak ini untuk memilih foto produk yang mau dicek (JPG/RAW)'}
           imageSrc={previewImageSrc}
           rois={rois}
           selectedRoiId={selectedRoiId}
@@ -657,16 +804,16 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
 
       {/* Banner Panduan jika foto belum lengkap dimasukkan */}
       {(!masterImageSrc || !productImageSrc) && (
-        <div className="bg-gradient-to-br from-studio-900 to-studio-950 border border-amber-500/30 rounded-2xl p-6 text-center shadow-xl space-y-3">
-          <div className="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 mx-auto shadow-inner">
-            <Upload className="w-6 h-6" />
+        <div className="bg-gradient-to-br from-studio-900 to-studio-950 border border-amber-500/30 rounded-2xl p-5 text-center shadow-xl space-y-3">
+          <div className="w-11 h-11 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 mx-auto shadow-inner">
+            <Upload className="w-5 h-5" />
           </div>
           <div>
             <h4 className="text-sm font-bold text-white">
               Silakan Masukkan Foto Master dan Foto Produk (Format JPG Didukung)
             </h4>
             <p className="text-xs text-studio-400 max-w-lg mx-auto mt-1 leading-relaxed">
-              Sistem telah siap dan <b>tidak akan melakukan pengecekan sebelum foto Anda dimasukkan</b>. Klik kotak kiri untuk memasukkan foto <b>Master Acuan Kayu (JPG)</b> Anda, dan klik kotak kanan untuk memasukkan foto <b>Produk Studio (JPG)</b> yang ingin diperiksa.
+              Pilih foto di kedua kotak di atas, atau klik tombol cepat di bawah. Sistem tidak akan membandingkan sebelum Anda menekan tombol bandingkan.
             </p>
           </div>
           <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
@@ -694,8 +841,92 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
         </div>
       )}
 
-      {/* Jika kedua foto SUDAH lengkap, tampilkan hasil perbandingan */}
-      {masterImageSrc && productImageSrc && (
+      {/* PANEL TOMBOL AKSI UTAMA (Action Center) */}
+      <div className="bg-gradient-to-r from-studio-900 via-studio-850 to-studio-900 border border-studio-800 rounded-2xl p-5 shadow-xl flex flex-col md:flex-row items-center justify-between gap-4">
+        <div className="space-y-1 text-center md:text-left">
+          <div className="flex items-center justify-center md:justify-start space-x-2">
+            <span className="text-xs font-bold uppercase tracking-wider text-studio-300">
+              Status Pengecekan Studio:
+            </span>
+            {comparisonStatus === 'idle' && (
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-studio-800 text-studio-400 border border-studio-700">
+                ⏳ Menunggu Foto Lengkap
+              </span>
+            )}
+            {comparisonStatus === 'ready' && (
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse">
+                👉 Siap Dibandingkan!
+              </span>
+            )}
+            {comparisonStatus === 'analyzing' && (
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-sky-500/20 text-sky-300 border border-sky-500/40">
+                ⚙️ Sedang Memeriksa Piksel & Serat...
+              </span>
+            )}
+            {comparisonStatus === 'completed' && (
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                ✅ Selesai Dibandingkan!
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-studio-400">
+            {comparisonStatus === 'idle'
+              ? 'Langkah 1: Masukkan foto master (kiri) dan foto produk (kanan) di atas.'
+              : comparisonStatus === 'ready'
+              ? 'Langkah 2: Kedua foto sudah siap! Klik tombol kuning di samping untuk mulai membandingkan warna dan serat kayu.'
+              : comparisonStatus === 'analyzing'
+              ? 'Sistem sedang membaca piksel warna CIEDE2000 dan pola serat kayu LBP...'
+              : 'Pemeriksaan selesai. Rincian hasil perbandingan dan tombol keputusan tersedia di bawah.'}
+          </p>
+        </div>
+
+        {/* Tombol Aksi */}
+        <div className="flex items-center space-x-3 shrink-0">
+          {comparisonStatus === 'idle' && (
+            <button
+              disabled
+              className="px-6 py-3.5 rounded-xl bg-studio-800 text-studio-500 border border-studio-700/50 text-xs font-bold uppercase tracking-wider flex items-center gap-2 cursor-not-allowed opacity-70"
+            >
+              <span>⏳ Masukkan Kedua Foto Dulu</span>
+            </button>
+          )}
+
+          {comparisonStatus === 'ready' && (
+            <button
+              id="btn-start-compare"
+              onClick={() => executeComparison()}
+              className="px-8 py-3.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-xs font-extrabold uppercase tracking-wider flex items-center gap-2.5 transition-all shadow-xl shadow-amber-500/20 scale-105 hover:scale-110 active:scale-100"
+            >
+              <Search className="w-4 h-4 stroke-[3]" />
+              <span>🔍 KLIK UNTUK BANDINGKAN SEKARANG</span>
+            </button>
+          )}
+
+          {comparisonStatus === 'analyzing' && (
+            <button
+              disabled
+              className="px-8 py-3.5 rounded-xl bg-sky-600/80 text-white text-xs font-bold uppercase tracking-wider flex items-center gap-2.5 cursor-wait shadow-lg"
+            >
+              <RefreshCw className="w-4 h-4 animate-spin" />
+              <span>MEMERIKSA WARNA & SERAT...</span>
+            </button>
+          )}
+
+          {comparisonStatus === 'completed' && (
+            <button
+              id="btn-recompare"
+              onClick={() => executeComparison()}
+              className="px-5 py-3 rounded-xl bg-studio-800 hover:bg-studio-700 text-studio-200 hover:text-white border border-studio-700 text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition"
+            >
+              <RefreshCw className="w-4 h-4" />
+              <span>Bandingkan Ulang</span>
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Jika status SUDAH selesai dibandingkan, tampilkan hasil perbandingan */}
+      {comparisonStatus === 'completed' && (
         <>
           {/* Banner Status Berhasil Dimuat */}
           <div className="bg-emerald-950/40 border border-emerald-500/30 rounded-xl px-4 py-3 flex flex-wrap items-center justify-between gap-3 shadow-md">

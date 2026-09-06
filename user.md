@@ -8,6 +8,7 @@
   - Gunakan analogi dunia nyata atau penjelasan visual to-the-point tanpa jargon yang membingungkan.
   - Penjelasan langkah demi langkah yang praktis.
   - **Tampilan Output User-Friendly**: Bima menginginkan output (baik di layar aplikasi maupun dalam respon penjelasan) disajikan sesederhana mungkin bagi orang awam foto/furnitur, tanpa rumus matematika rumit seperti simbol delta E atau istilah teknis yang bikin pusing. Ganti dengan kata sehari-hari (misal: 'Warna Pas', 'Agak Kemerahan', 'Sedikit Lebih Terang').
+  - **Kepastian Alur & Tombol Aksi Nyata**: Bima bingung jika aplikasi berjalan otomatis tanpa tombol aksi yang jelas. Harus ada tombol tindakan yang tegas (misal: tombol besar **'Bandingkan Sekarang'**) serta **indikator status 3 langkah** yang gamblang (Langkah 1: Masukkan Foto -> Langkah 2: Tekan Tombol Bandingkan -> Langkah 3: Hasil & Keputusan). Hindari proses otomatis diam-diam yang membuat pengguna bertanya-tanya apakah foto sudah dibandingkan atau belum.
 
 ## Prinsip Kerja Bersama
 - **Jangan Auto-Approve Plan**: Setiap perencanaan (plan) harus disajikan untuk ditinjau dan disetujui Bima terlebih dahulu.
