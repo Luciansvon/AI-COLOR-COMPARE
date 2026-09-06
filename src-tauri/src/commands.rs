@@ -10,6 +10,8 @@ use std::path::Path;
 use std::sync::Mutex;
 use tauri::State;
 
+use crate::texture_engine::{analyze_roi_texture_and_fusion, ComprehensiveRoiAnalysis};
+
 pub struct AppState {
     pub db: Mutex<Database>,
 }
@@ -18,6 +20,8 @@ pub struct AppState {
 pub struct AnalyzeRoiInput {
     pub master_rgba: Vec<u8>,
     pub product_rgba: Vec<u8>,
+    pub width: Option<u32>,
+    pub height: Option<u32>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -27,6 +31,7 @@ pub struct AnalyzeRoiOutput {
     pub measured: MeasuredEvidence,
     pub estimated: EstimatedRecommendation,
     pub master_quality: ReferenceQualityReport,
+    pub texture_analysis: Option<ComprehensiveRoiAnalysis>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -81,13 +86,61 @@ pub fn analyze_roi_cmd(payload: AnalyzeRoiInput) -> Result<AnalyzeRoiOutput, Str
         estimated.explanation.push_str(" (Perhatian: Kualitas foto master panel memiliki peringatan teknis).");
     }
 
+    let (w, h) = if let (Some(w), Some(h)) = (payload.width, payload.height) {
+        (w as usize, h as usize)
+    } else {
+        let count = payload.master_rgba.len() / 4;
+        let side = (count as f64).sqrt().round() as usize;
+        (side, side)
+    };
+
+    let texture_analysis = if w >= 4 && h >= 4 && payload.master_rgba.len() >= w * h * 4 && payload.product_rgba.len() >= w * h * 4 {
+        Some(analyze_roi_texture_and_fusion(
+            &payload.master_rgba,
+            &payload.product_rgba,
+            w,
+            h,
+            &measured,
+        ))
+    } else {
+        None
+    };
+
     Ok(AnalyzeRoiOutput {
         master_stats,
         product_stats,
         measured,
         estimated,
         master_quality,
+        texture_analysis,
     })
+}
+
+#[tauri::command]
+pub fn analyze_texture_cmd(payload: AnalyzeRoiInput) -> Result<ComprehensiveRoiAnalysis, String> {
+    let (w, h) = if let (Some(w), Some(h)) = (payload.width, payload.height) {
+        (w as usize, h as usize)
+    } else {
+        let count = payload.master_rgba.len() / 4;
+        let side = (count as f64).sqrt().round() as usize;
+        (side, side)
+    };
+
+    if w < 4 || h < 4 {
+        return Err("Ukuran ROI terlalu kecil untuk analisis tekstur (minimal 4x4 piksel)".to_string());
+    }
+
+    let master_stats = extract_roi_stats(&payload.master_rgba);
+    let product_stats = extract_roi_stats(&payload.product_rgba);
+    let (measured, _) = compare_stats(&master_stats, &product_stats);
+
+    Ok(analyze_roi_texture_and_fusion(
+        &payload.master_rgba,
+        &payload.product_rgba,
+        w,
+        h,
+        &measured,
+    ))
 }
 
 #[tauri::command]

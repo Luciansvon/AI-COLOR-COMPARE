@@ -7,6 +7,7 @@
   - Bahasa Indonesia santun, jelas, dan mudah dipahami (dilarang menggunakan bahasa asing/Inggris).
   - Gunakan analogi dunia nyata atau penjelasan visual to-the-point tanpa jargon yang membingungkan.
   - Penjelasan langkah demi langkah yang praktis.
+  - **Tampilan Output User-Friendly**: Bima menginginkan output (baik di layar aplikasi maupun dalam respon penjelasan) disajikan sesederhana mungkin bagi orang awam foto/furnitur, tanpa rumus matematika rumit seperti simbol delta E atau istilah teknis yang bikin pusing. Ganti dengan kata sehari-hari (misal: 'Warna Pas', 'Agak Kemerahan', 'Sedikit Lebih Terang').
 
 ## Prinsip Kerja Bersama
 - **Jangan Auto-Approve Plan**: Setiap perencanaan (plan) harus disajikan untuk ditinjau dan disetujui Bima terlebih dahulu.

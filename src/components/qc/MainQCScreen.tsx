@@ -9,14 +9,16 @@ import {
   CorrectionConflict,
   QCRecord,
   ImageMetadata,
+  UnifiedMaterialReport,
 } from '../../types';
 import { InteractiveImageViewer } from './InteractiveImageViewer';
 import { EvidenceCard } from './EvidenceCard';
 import { CorrectionPanel } from './CorrectionPanel';
 import { DecisionModal } from './DecisionModal';
-import { extractStatsFromImageROI, renderCorrectedPreview } from '../../utils/canvasColorExtractor';
+import { extractPixelsFromImageROI, renderCorrectedPreview } from '../../utils/canvasColorExtractor';
 import { compareStats } from '../../color_science/metrics';
 import { calculateRecommendedCorrection } from '../../color_science/correction';
+import { evaluateMaterialFusion } from '../../color_science/texture';
 import { generateWoodTextureImage } from '../../utils/imageGenerator';
 import { Check, X, Upload, Sparkles, AlertTriangle, ShieldCheck, Camera } from 'lucide-react';
 
@@ -63,6 +65,7 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
   const [selectedRoiId, setSelectedRoiId] = useState<string>('roi-frame');
   const [roiMeasured, setRoiMeasured] = useState<Record<string, MeasuredEvidence>>({});
   const [roiEstimated, setRoiEstimated] = useState<Record<string, EstimatedRecommendation>>({});
+  const [roiFusion, setRoiFusion] = useState<Record<string, UnifiedMaterialReport>>({});
 
   // State Keputusan Operator
   const [roiDecisions, setRoiDecisions] = useState<Record<string, ROIDecision>>({});
@@ -200,9 +203,10 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
     const runAnalysis = async () => {
       const measuredMap: Record<string, MeasuredEvidence> = {};
       const estimatedMap: Record<string, EstimatedRecommendation> = {};
+      const fusionMap: Record<string, UnifiedMaterialReport> = {};
 
-      // Ambil statistik master panel (area tengah papan master)
-      const masterStats = await extractStatsFromImageROI(masterImageSrc, {
+      // Ambil piksel dan statistik master panel (area tengah papan master)
+      const masterExtract = await extractPixelsFromImageROI(masterImageSrc, {
         x: 25,
         y: 25,
         width: 50,
@@ -210,10 +214,10 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
       });
 
       for (const roi of rois) {
-        const prodStats = await extractStatsFromImageROI(productImageSrc, roi.box);
+        const prodExtract = await extractPixelsFromImageROI(productImageSrc, roi.box);
 
         if (roi.role === 'master_backed') {
-          const res = compareStats(masterStats, prodStats);
+          const res = compareStats(masterExtract.stats, prodExtract.stats);
 
           // Simulasi konflik jika pada skenario konflik: buat armrest memiliki arah berlawanan
           if (selectedScenario === 'scenario-conflict' && roi.id === 'roi-armrest') {
@@ -221,6 +225,18 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
             res.measured.deltaB = -8.2; // Terlalu dingin
           }
 
+          // Analisis Penggabungan Bukti Tekstur & Serat Kayu (Fase P1)
+          const fusion = evaluateMaterialFusion(
+            res.measured,
+            masterExtract.data,
+            prodExtract.data,
+            masterExtract.width,
+            masterExtract.height,
+            prodExtract.width,
+            prodExtract.height
+          );
+
+          fusionMap[roi.id] = fusion;
           measuredMap[roi.id] = res.measured;
           estimatedMap[roi.id] = res.estimated;
         } else {
@@ -231,13 +247,13 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
             deltaA: 0,
             deltaB: 0,
             masterBrightness: 0,
-            productBrightness: Number(prodStats.brightness.toFixed(1)),
+            productBrightness: Number(prodExtract.stats.brightness.toFixed(1)),
             brightnessDiffPercent: 0,
             contrastDiffPercent: 0,
             saturationDiffPercent: 0,
             clippingWarning: {
-              shadowClipped: prodStats.shadowClippingRatio > 0.05,
-              highlightClipped: prodStats.highlightClippingRatio > 0.05,
+              shadowClipped: prodExtract.stats.shadowClippingRatio > 0.05,
+              highlightClipped: prodExtract.stats.highlightClippingRatio > 0.05,
             },
           };
         }
@@ -245,6 +261,7 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
 
       setRoiMeasured(measuredMap);
       setRoiEstimated(estimatedMap);
+      setRoiFusion(fusionMap);
 
       // Hitung rekomendasi koreksi global dan deteksi konflik
       const pairs = rois.map((r) => ({ roi: r, measured: measuredMap[r.id] }));
@@ -348,6 +365,7 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
         roi: r,
         measured: roiMeasured[r.id],
         estimated: roiEstimated[r.id],
+        unifiedFusion: roiFusion[r.id],
         operatorDecision: roiDecisions[r.id],
       })),
       globalCorrection: correctionParams,
@@ -532,6 +550,7 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
               roi={roi}
               measured={roiMeasured[roi.id]}
               estimated={roiEstimated[roi.id]}
+              unifiedFusion={roiFusion[roi.id]}
               operatorDecision={roiDecisions[roi.id]}
               onOperatorDecision={handleRoiDecision}
               isSelected={selectedRoiId === roi.id}

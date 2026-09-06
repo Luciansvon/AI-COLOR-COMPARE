@@ -52,6 +52,46 @@ export async function extractStatsFromImageROI(
 }
 
 /**
+ * Ekstraksi piksel dan dimensi ROI untuk analisis warna dan tekstur serat kayu (Fase P1)
+ */
+export async function extractPixelsFromImageROI(
+  imageSource: string | HTMLImageElement,
+  box: ROIBox
+): Promise<{ data: Uint8ClampedArray; width: number; height: number; stats: PixelDataStats }> {
+  const img = typeof imageSource === 'string' ? await loadImage(imageSource) : imageSource;
+
+  const totalWidth = img.naturalWidth || img.width;
+  const totalHeight = img.naturalHeight || img.height;
+
+  const pixelX = Math.round((box.x / 100) * totalWidth);
+  const pixelY = Math.round((box.y / 100) * totalHeight);
+  const pixelW = Math.max(1, Math.round((box.width / 100) * totalWidth));
+  const pixelH = Math.max(1, Math.round((box.height / 100) * totalHeight));
+
+  const clampedX = Math.max(0, Math.min(totalWidth - 1, pixelX));
+  const clampedY = Math.max(0, Math.min(totalHeight - 1, pixelY));
+  const clampedW = Math.max(1, Math.min(totalWidth - clampedX, pixelW));
+  const clampedH = Math.max(1, Math.min(totalHeight - clampedY, pixelH));
+
+  const canvas = document.createElement('canvas');
+  canvas.width = clampedW;
+  canvas.height = clampedH;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  if (!ctx) throw new Error('Gagal mendapatkan konteks 2D canvas');
+
+  ctx.drawImage(img, clampedX, clampedY, clampedW, clampedH, 0, 0, clampedW, clampedH);
+  const imageData = ctx.getImageData(0, 0, clampedW, clampedH);
+  const stats = extractROIStats(imageData.data);
+
+  return {
+    data: imageData.data,
+    width: clampedW,
+    height: clampedH,
+    stats,
+  };
+}
+
+/**
  * Menghasilkan preview gambar yang sudah disesuaikan dengan parameter koreksi
  * NON-DESTRUCTIVE: Hanya memanipulasi canvas sementara dan menghasilkan DataURL baru
  */

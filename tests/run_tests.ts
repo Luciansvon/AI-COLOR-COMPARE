@@ -175,6 +175,112 @@ assertTrue('Jika Hanya Ada Area No-Master, Tidak Ada Koreksi Yang Dipaksakan',
   resNoMasterOnly.recommended.temperatureK === 0 && resNoMasterOnly.recommended.exposureEV === 0
 );
 
+console.log('\n--- 4. Uji Kecerdasan Tekstur & Serat Kayu (Fase P1) ---');
+import { rgbaToGrayscale, calculateLBPHistogram, compareLBPSimilarity, evaluateMaterialFusion } from '../src/color_science/texture';
+
+// Buat 2 citra sintetis: 1 normal, 1 lebih terang (simulasi perbedaan lampu)
+const testWidth = 16;
+const testHeight = 16;
+const imgNormal = new Uint8Array(testWidth * testHeight * 4);
+const imgBrighter = new Uint8Array(testWidth * testHeight * 4);
+
+for (let y = 0; y < testHeight; y++) {
+  for (let x = 0; x < testWidth; x++) {
+    const base = x % 3 === 0 ? 80 : 40;
+    const idx = (y * testWidth + x) * 4;
+    imgNormal[idx] = base;
+    imgNormal[idx + 1] = base;
+    imgNormal[idx + 2] = base;
+    imgNormal[idx + 3] = 255;
+
+    const brighter = Math.min(255, base + 50);
+    imgBrighter[idx] = brighter;
+    imgBrighter[idx + 1] = brighter;
+    imgBrighter[idx + 2] = brighter;
+    imgBrighter[idx + 3] = 255;
+  }
+}
+
+const grayNormal = rgbaToGrayscale(imgNormal, testWidth, testHeight);
+const grayBrighter = rgbaToGrayscale(imgBrighter, testWidth, testHeight);
+
+const lbpNormal = calculateLBPHistogram(grayNormal, testWidth, testHeight);
+const lbpBrighter = calculateLBPHistogram(grayBrighter, testWidth, testHeight);
+
+const lbpSim = compareLBPSimilarity(lbpNormal, lbpBrighter);
+assertTrue(`Ketahanan Tekstur LBP terhadap Perubahan Lampu (Sim = ${(lbpSim * 100).toFixed(1)}%)`, lbpSim > 0.95);
+
+// Uji Penggabungan Bukti: Warna Beda + Serat Sama -> Masalah Lampu (IlluminationArtifact)
+const fusionLamp = evaluateMaterialFusion(
+  {
+    deltaE00: 4.8,
+    deltaL: 2.5,
+    deltaA: 0.8,
+    deltaB: 4.5, // Lampu kuning
+    masterBrightness: 30,
+    productBrightness: 35,
+    brightnessDiffPercent: 16,
+    contrastDiffPercent: 2,
+    saturationDiffPercent: 10,
+  },
+  imgNormal,
+  imgBrighter,
+  testWidth,
+  testHeight
+);
+assertTrue('Deteksi Cerdas: Masalah Lampu Saat Serat Kayu Identik', fusionLamp.diagnosisType === 'IlluminationArtifact');
+assertTrue('Rekomendasi Solusi Lampu Tersedia', fusionLamp.studioAction.includes('lampu') || fusionLamp.studioAction.includes('kamera'));
+
+console.log('\n--- 5. Uji AnomalyDINO / Patch-Level Memory Bank (Fase P1 & P2) ---');
+import {
+  extractPatchDescriptors,
+  buildMasterMemoryBank,
+  detectPatchAnomalies,
+  computeDescriptorDistance
+} from '../src/color_science/deep_texture';
+
+// 1. Uji Jarak Vektor Fitur
+const vecA = new Float32Array([1, 0, 0, 0]);
+const vecB = new Float32Array([1, 0, 0, 0]);
+const vecC = new Float32Array([0, 1, 0, 0]);
+assertClose('Jarak Vektor Fitur Identik (Harus ~0)', computeDescriptorDistance(vecA, vecB), 0.0, 0.001);
+assertClose('Jarak Vektor Fitur Ortogonal (Harus 0.5)', computeDescriptorDistance(vecA, vecC), 0.5, 0.001);
+
+// 2. Buat citra sintetis ukuran 32x32 dengan pola serat kayu
+const patchImgW = 32;
+const patchImgH = 32;
+const masterGray32 = new Uint8Array(patchImgW * patchImgH);
+const prodNormal32 = new Uint8Array(patchImgW * patchImgH);
+const prodDefective32 = new Uint8Array(patchImgW * patchImgH);
+
+for (let y = 0; y < patchImgH; y++) {
+  for (let x = 0; x < patchImgW; x++) {
+    const grainVal = (x % 4) * 20 + 50; // Urat kayu vertikal
+    masterGray32[y * patchImgW + x] = grainVal;
+    prodNormal32[y * patchImgW + x] = grainVal + 5; // Sedikit pergeseran cahaya
+
+    // Produk cacat: ada noda / cacat serat di pojok kanan bawah
+    if (x >= 16 && y >= 16) {
+      prodDefective32[y * patchImgW + x] = 220; // Noda putih / resin cacat
+    } else {
+      prodDefective32[y * patchImgW + x] = grainVal;
+    }
+  }
+}
+
+// Bangkitkan bank memori master WN-04
+const masterBank = buildMasterMemoryBank('WN-04', masterGray32, patchImgW, patchImgH, 16, 8);
+assertTrue('Bank Memori Master Terisi Descriptor', masterBank.descriptors.length > 0);
+
+// Bandingkan produk normal vs master
+const normalAnomaly = detectPatchAnomalies(prodNormal32, patchImgW, patchImgH, masterBank, 16, 16);
+assertTrue(`Produk Normal Lolos Anomali Serat (Skor = ${normalAnomaly.anomalyScore})`, normalAnomaly.isAnomalous === false);
+
+// Bandingkan produk cacat vs master
+const defectAnomaly = detectPatchAnomalies(prodDefective32, patchImgW, patchImgH, masterBank, 16, 16);
+assertTrue(`Produk Cacat Terdeteksi Anomali Serat (Skor = ${defectAnomaly.anomalyScore})`, defectAnomaly.isAnomalous === true);
+assertTrue('Lokasi Patch Terburuk Tepat di Area Cacat', defectAnomaly.worstPatchLocation !== null && defectAnomaly.worstPatchLocation.x >= 16);
+
 console.log('\n================================================================');
 console.log(`🏁 HASIL AKHIR: ${passedTests} dari ${totalTests} pengujian BERHASIL (100% LULUS)`);
 console.log('================================================================\n');

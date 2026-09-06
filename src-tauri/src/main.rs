@@ -5,6 +5,7 @@ pub mod color_science;
 pub mod commands;
 pub mod raw_engine;
 pub mod storage;
+pub mod texture_engine;
 
 use commands::*;
 use std::fs;
@@ -38,6 +39,7 @@ fn main() {
             list_masters_cmd,
             add_master_cmd,
             analyze_roi_cmd,
+            analyze_texture_cmd,
             calculate_correction_cmd,
             check_master_consistency_cmd,
             save_qc_record_cmd,

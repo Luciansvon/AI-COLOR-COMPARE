@@ -50,6 +50,25 @@ export type EstimatedRecommendation = {
   explanation: string;
 };
 
+export type TextureEvidence = {
+  textureSimilarityScore: number;   // 0.0 s/d 1.0 (LBP & GLCM)
+  grainAngleDiffDeg: number;         // 0 - 90 derajat
+  isGrainMatching: boolean;
+  roughnessDiff: number;
+};
+
+export type UnifiedMaterialReport = {
+  diagnosisType: 'Conforming' | 'IlluminationArtifact' | 'MaterialMismatch' | 'SpeciesOrGrainMismatch';
+  title: string;
+  primaryCause: string;
+  humanExplanation: string;
+  studioAction: string;
+  confidenceLevel: 'Tinggi' | 'Sedang' | 'Rendah';
+  textureSimilarityScore: number;
+  grainAngleDiffDeg: number;
+  isGrainMatching: boolean;
+};
+
 export type CorrectionParams = {
   temperatureK: number;   // Selisih Kelvin, misal -150 K
   tint: number;           // -100 s/d +100
@@ -108,6 +127,7 @@ export type QCRecord = {
     roi: ROIItem;
     measured?: MeasuredEvidence;
     estimated?: EstimatedRecommendation;
+    unifiedFusion?: UnifiedMaterialReport;
     operatorDecision?: ROIDecision;
   }[];
   globalCorrection?: CorrectionParams;

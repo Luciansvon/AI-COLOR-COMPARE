@@ -123,6 +123,29 @@ impl Database {
             )?;
         }
 
+        if current_version < 2 {
+            let has_col: bool = self
+                .conn
+                .query_row(
+                    "SELECT COUNT(*) FROM pragma_table_info('masters') WHERE name = 'texture_profile_json';",
+                    [],
+                    |row| row.get::<_, i32>(0).map(|c| c > 0),
+                )
+                .unwrap_or(false);
+
+            if !has_col {
+                let _ = self.conn.execute(
+                    "ALTER TABLE masters ADD COLUMN texture_profile_json TEXT;",
+                    [],
+                );
+            }
+
+            self.conn.execute(
+                "INSERT INTO schema_version (version, applied_at) VALUES (2, datetime('now'));",
+                [],
+            )?;
+        }
+
         Ok(())
     }
 
