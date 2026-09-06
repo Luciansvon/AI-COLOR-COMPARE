@@ -7,6 +7,7 @@ export type MasterIdentity = {
   category: 'wood' | 'metal' | 'fabric' | 'leather' | 'other';
   referenceImageUrl?: string;
   nominalLab?: { l: number; a: number; b: number };
+  toleranceDeltaE?: number; // Ambang batas toleransi selisih warna (default 2.2)
   description?: string;
   createdAt: string;
 };

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { MasterIdentity } from '../../types';
-import { X, Plus, ShieldCheck, Check, Info } from 'lucide-react';
+import { X, Plus, ShieldCheck, Check, Info, Image as ImageIcon, Upload } from 'lucide-react';
 
 interface MasterLibraryModalProps {
   isOpen: boolean;
@@ -24,8 +24,20 @@ export const MasterLibraryModal: React.FC<MasterLibraryModalProps> = ({
   const [newName, setNewName] = useState('');
   const [newCategory, setNewCategory] = useState<'wood' | 'metal' | 'fabric' | 'leather' | 'other'>('wood');
   const [newDesc, setNewDesc] = useState('');
+  const [newTolerance, setNewTolerance] = useState('2.2');
+  const [newImagePreview, setNewImagePreview] = useState<string | null>(null);
 
   if (!isOpen) return null;
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setNewImagePreview(event.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,11 +48,15 @@ export const MasterLibraryModal: React.FC<MasterLibraryModalProps> = ({
       name: newName.trim(),
       category: newCategory,
       description: newDesc.trim() || undefined,
+      referenceImageUrl: newImagePreview || undefined,
+      toleranceDeltaE: parseFloat(newTolerance) || 2.2,
     });
 
     setNewCode('');
     setNewName('');
     setNewDesc('');
+    setNewTolerance('2.2');
+    setNewImagePreview(null);
     setIsAdding(false);
   };
 
@@ -104,6 +120,42 @@ export const MasterLibraryModal: React.FC<MasterLibraryModalProps> = ({
               </div>
             </div>
 
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-[11px] text-studio-400 block mb-1">Toleransi Selisih (ΔE₀₀)</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  min="0.5"
+                  max="10.0"
+                  required
+                  value={newTolerance}
+                  onChange={(e) => setNewTolerance(e.target.value)}
+                  className="w-full bg-studio-900 border border-studio-700 rounded p-2 text-xs text-white font-mono"
+                />
+              </div>
+              <div>
+                <label className="text-[11px] text-studio-400 block mb-1">Foto Sampel Papan Master (Opsional)</label>
+                <label className="w-full bg-studio-900 hover:bg-studio-800 border border-studio-700 rounded p-2 text-xs text-studio-300 flex items-center justify-center gap-1.5 cursor-pointer truncate">
+                  <Upload className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                  <span className="truncate">{newImagePreview ? 'Foto Terpilih ✅' : 'Pilih Berkas Foto...'}</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+            </div>
+
+            {newImagePreview && (
+              <div className="flex items-center gap-2 p-2 bg-studio-900/90 rounded border border-studio-800">
+                <img src={newImagePreview} alt="Pratinjau Master" className="w-10 h-10 object-cover rounded border border-studio-700" />
+                <span className="text-[11px] text-emerald-400 font-medium">Foto master fisik siap dijadikan acuan visual!</span>
+              </div>
+            )}
+
             <div>
               <label className="text-[11px] text-studio-400 block mb-1">Keterangan Tambahan</label>
               <input
@@ -134,6 +186,7 @@ export const MasterLibraryModal: React.FC<MasterLibraryModalProps> = ({
         ) : (
           <button
             onClick={() => setIsAdding(true)}
+            id="btn-add-new-master"
             className="w-full py-2 border border-dashed border-studio-700 hover:border-amber-400/60 rounded-lg text-xs font-semibold text-studio-300 hover:text-amber-300 flex items-center justify-center gap-1.5 transition"
           >
             <Plus className="w-4 h-4" />
@@ -158,16 +211,31 @@ export const MasterLibraryModal: React.FC<MasterLibraryModalProps> = ({
                     : 'border-studio-800 bg-studio-950/40 text-studio-300 hover:border-studio-700'
                 }`}
               >
-                <div>
-                  <div className="flex items-center space-x-2">
-                    <span className="font-mono font-bold text-amber-400 text-xs px-2 py-0.5 rounded bg-studio-900 border border-studio-800">
-                      {m.code}
-                    </span>
-                    <span className="font-semibold text-sm text-white">{m.name}</span>
-                  </div>
-                  {m.description && (
-                    <p className="text-xs text-studio-400 mt-1">{m.description}</p>
+                <div className="flex items-center gap-3">
+                  {m.referenceImageUrl ? (
+                    <img
+                      src={m.referenceImageUrl}
+                      alt={m.name}
+                      className="w-9 h-9 rounded object-cover border border-studio-700 shrink-0"
+                    />
+                  ) : (
+                    <div className="w-9 h-9 rounded bg-[#3d2b1f] border border-studio-700 flex items-center justify-center text-[10px] font-bold text-amber-300 shrink-0">
+                      {m.code.slice(0, 2)}
+                    </div>
                   )}
+
+                  <div>
+                    <div className="flex items-center space-x-2">
+                      <span className="font-mono font-bold text-amber-400 text-xs px-2 py-0.5 rounded bg-studio-900 border border-studio-800">
+                        {m.code}
+                      </span>
+                      <span className="font-semibold text-sm text-white">{m.name}</span>
+                    </div>
+                    <div className="flex items-center gap-2 mt-1 text-[11px] text-studio-400">
+                      <span>Toleransi: ΔE ≤ {m.toleranceDeltaE || 2.2}</span>
+                      {m.description && <span>• {m.description}</span>}
+                    </div>
+                  </div>
                 </div>
 
                 {isSelected && (
