@@ -435,10 +435,10 @@ export const InteractiveImageViewer: React.FC<InteractiveImageViewerProps> = ({
             </div>
           )}
           <div>
-            <h3 className="text-xs font-bold uppercase tracking-wider text-studio-100">
+            <h3 className="text-xl font-extrabold text-white">
               {title}
             </h3>
-            <p className="text-[11px] text-studio-400 truncate max-w-xs">{subtitle}</p>
+            <p className="text-base text-studio-300 max-w-xl leading-snug">{subtitle}</p>
           </div>
         </div>
 
@@ -655,25 +655,25 @@ export const InteractiveImageViewer: React.FC<InteractiveImageViewerProps> = ({
                       {/* Titik Kiri Atas (TL) */}
                       <div
                         onMouseDown={(e) => handleStartResize(e, roi.id, 'tl', displayBox)}
-                        className="absolute -top-1.5 -left-1.5 w-3.5 h-3.5 bg-white border-2 border-amber-500 rounded-full cursor-nwse-resize shadow-lg hover:scale-125 z-30 transition-transform"
+                        className="absolute -top-2.5 -left-2.5 w-5 h-5 bg-white border-2 border-amber-500 rounded-full cursor-nwse-resize shadow-lg hover:scale-125 z-30 transition-transform"
                         title="Tarik sudut untuk ubah ukuran area"
                       />
                       {/* Titik Kanan Atas (TR) */}
                       <div
                         onMouseDown={(e) => handleStartResize(e, roi.id, 'tr', displayBox)}
-                        className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 bg-white border-2 border-amber-500 rounded-full cursor-nesw-resize shadow-lg hover:scale-125 z-30 transition-transform"
+                        className="absolute -top-2.5 -right-2.5 w-5 h-5 bg-white border-2 border-amber-500 rounded-full cursor-nesw-resize shadow-lg hover:scale-125 z-30 transition-transform"
                         title="Tarik sudut untuk ubah ukuran area"
                       />
                       {/* Titik Kiri Bawah (BL) */}
                       <div
                         onMouseDown={(e) => handleStartResize(e, roi.id, 'bl', displayBox)}
-                        className="absolute -bottom-1.5 -left-1.5 w-3.5 h-3.5 bg-white border-2 border-amber-500 rounded-full cursor-nesw-resize shadow-lg hover:scale-125 z-30 transition-transform"
+                        className="absolute -bottom-2.5 -left-2.5 w-5 h-5 bg-white border-2 border-amber-500 rounded-full cursor-nesw-resize shadow-lg hover:scale-125 z-30 transition-transform"
                         title="Tarik sudut untuk ubah ukuran area"
                       />
                       {/* Titik Kanan Bawah (BR) */}
                       <div
                         onMouseDown={(e) => handleStartResize(e, roi.id, 'br', displayBox)}
-                        className="absolute -bottom-1.5 -right-1.5 w-3.5 h-3.5 bg-white border-2 border-amber-500 rounded-full cursor-nwse-resize shadow-lg hover:scale-125 z-30 transition-transform"
+                        className="absolute -bottom-2.5 -right-2.5 w-5 h-5 bg-white border-2 border-amber-500 rounded-full cursor-nwse-resize shadow-lg hover:scale-125 z-30 transition-transform"
                         title="Tarik sudut untuk ubah ukuran area"
                       />
 

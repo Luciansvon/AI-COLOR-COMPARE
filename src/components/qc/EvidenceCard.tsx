@@ -32,11 +32,6 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
     ? `rgb(${measured.productRgb.r}, ${measured.productRgb.g}, ${measured.productRgb.b})`
     : '#52341e';
 
-  // Kalkulasi persentase akurasi warna dari deltaE00 (skala 0 - 100%)
-  const colorAccuracyPercent = measured
-    ? Math.max(0, Math.min(100, Math.round(100 - measured.deltaE00 * 7.5)))
-    : 100;
-
   return (
     <div
       onClick={onSelect}
@@ -50,7 +45,7 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-5 pb-4 border-b border-studio-800/80">
         <div>
           <div className="flex items-center space-x-2.5">
-            <h4 className="text-base font-bold text-white tracking-wide">{roi.name}</h4>
+            <h4 className="text-2xl font-extrabold text-white tracking-tight">{roi.name}</h4>
             {isNoMaster ? (
               <span className="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-sky-500/10 text-sky-300 border border-sky-500/20">
                 Guardrail (Bukan Kayu)
@@ -112,7 +107,7 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
               {/* Swatch Master */}
               <div className="text-center flex-1 flex flex-col items-center">
                 <div
-                  className="w-14 h-14 rounded-xl border-2 border-studio-700 shadow-md transition transform hover:scale-105"
+                  className="w-20 h-20 rounded-xl border-2 border-studio-700 shadow-md transition transform hover:scale-105"
                   style={{ backgroundColor: masterColorRgb }}
                   title={`Master: ${masterColorRgb}`}
                 />
@@ -129,7 +124,7 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
               {/* Swatch Produk */}
               <div className="text-center flex-1 flex flex-col items-center">
                 <div
-                  className="w-14 h-14 rounded-xl border-2 border-studio-700 shadow-md transition transform hover:scale-105"
+                  className="w-20 h-20 rounded-xl border-2 border-studio-700 shadow-md transition transform hover:scale-105"
                   style={{ backgroundColor: productColorRgb }}
                   title={`Produk: ${productColorRgb}`}
                 />
@@ -185,7 +180,7 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
             <span className="text-[10px] text-emerald-400 font-medium">Data Metrik Objektif</span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
             {/* KARTU STATISTIK 1: KECERAHAN CAHAYA */}
             <div className="bg-studio-950 p-4 rounded-xl border border-studio-800/90 hover:border-studio-700 transition flex flex-col justify-between">
               <div>
@@ -214,11 +209,11 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
                 <div className="grid grid-cols-2 gap-2 bg-studio-900/80 p-2.5 rounded-lg border border-studio-800/60 my-2 text-center">
                   <div>
                     <span className="text-[10px] text-studio-500 block">Master Fisik</span>
-                    <span className="text-sm font-bold font-mono text-studio-200">{measured.masterBrightness}%</span>
+                    <span className="operator-number font-bold font-mono text-studio-100">{measured.masterBrightness}%</span>
                   </div>
                   <div className="border-l border-studio-800 pl-2">
                     <span className="text-[10px] text-studio-500 block">Produk Foto</span>
-                    <span className="text-sm font-bold font-mono text-studio-200">{measured.productBrightness}%</span>
+                    <span className="operator-number font-bold font-mono text-studio-100">{measured.productBrightness}%</span>
                   </div>
                 </div>
               </div>
@@ -268,13 +263,13 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
                 <div className="grid grid-cols-2 gap-2 bg-studio-900/80 p-2.5 rounded-lg border border-studio-800/60 my-2 text-center">
                   <div>
                     <span className="text-[10px] text-studio-500 block">Master Fisik</span>
-                    <span className="text-sm font-bold font-mono text-studio-200">
+                    <span className="operator-number font-bold font-mono text-studio-100">
                       {measured.masterSaturation !== undefined ? `${measured.masterSaturation}%` : 'Standar'}
                     </span>
                   </div>
                   <div className="border-l border-studio-800 pl-2">
                     <span className="text-[10px] text-studio-500 block">Produk Foto</span>
-                    <span className="text-sm font-bold font-mono text-studio-200">
+                    <span className="operator-number font-bold font-mono text-studio-100">
                       {measured.productSaturation !== undefined ? `${measured.productSaturation}%` : 'Studio'}
                     </span>
                   </div>
@@ -320,11 +315,18 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
 
                 {/* Angka Skor Utama */}
                 <div className="bg-studio-900/80 p-2.5 rounded-lg border border-studio-800/60 my-2 text-center">
-                  <span className="text-[10px] text-studio-500 block">Tingkat Kecocokan</span>
-                  <div className="flex items-center justify-center gap-1.5">
-                    <span className="text-base font-bold font-mono text-emerald-400">{colorAccuracyPercent}%</span>
-                    <span className="text-xs text-studio-400 font-medium">Akurat</span>
+                  <span className="text-base text-studio-300 block">Skor Selisih Warna</span>
+                  <div className="flex items-end justify-center gap-2 mt-1">
+                    <span className="operator-number font-bold font-mono text-amber-300">{measured.deltaE00}</span>
+                    <span className="text-base text-studio-300 font-semibold pb-1">Delta E00</span>
                   </div>
+                  <p className="text-base text-studio-400 mt-2">
+                    {measured.deltaE00 <= 2.2
+                      ? 'Dalam toleransi standar'
+                      : measured.deltaE00 <= 4.5
+                      ? 'Perlu dicek operator'
+                      : 'Perbedaan warna jelas'}
+                  </p>
                 </div>
               </div>
 
@@ -357,7 +359,7 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
                 <div className="bg-studio-900/80 p-2.5 rounded-lg border border-studio-800/60 my-2 text-center">
                   <span className="text-[10px] text-studio-500 block">Kemiripan Pori & Urat</span>
                   <div className="flex items-center justify-center gap-1.5">
-                    <span className="text-base font-bold font-mono text-emerald-400">
+                    <span className="operator-number font-bold font-mono text-emerald-300">
                       {unifiedFusion ? `${(unifiedFusion.textureSimilarityScore * 100).toFixed(0)}%` : '100%'}
                     </span>
                     <span className="text-xs text-studio-400 font-medium">Identik</span>
@@ -377,7 +379,7 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
         </div>
       )}
 
-      {/* 3. Peta Petak Serat Kayu AI (AnomalyDINO / PatchCore Heatmap Grid) */}
+      {/* 3. Peta Perbedaan Serat (Analisis Patch Deterministik) */}
       {!isNoMaster && unifiedFusion?.patchAnomaly && unifiedFusion.patchAnomaly.heatmapGrid.length > 0 && (
         <div className="bg-studio-950/90 p-4 rounded-xl border border-studio-800/80 mb-5 space-y-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-studio-800/60 pb-2.5">
@@ -387,7 +389,7 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
               </div>
               <div>
                 <span className="text-xs font-bold text-white tracking-wide">
-                  Peta Petak Serat Kayu AI (AnomalyDINO)
+                  Peta Perbedaan Serat
                 </span>
                 <span className="text-[10px] text-studio-400 block font-normal">
                   Pemeriksaan pori & serat kayu per petak mikro terhadap master fisik

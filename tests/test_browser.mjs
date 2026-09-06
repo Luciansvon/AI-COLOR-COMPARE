@@ -3,7 +3,8 @@ import fs from 'fs';
 
 console.log('--- MEMULAI PENGUJIAN PLAYWRIGHT DENGAN EDGE ---');
 const browser = await chromium.launch({ channel: 'msedge', headless: true });
-const page = await browser.newPage();
+const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
+fs.mkdirSync('test-artifacts', { recursive: true });
 
 console.log('1. Membuka http://localhost:3000...');
 await page.goto('http://localhost:3000', { waitUntil: 'networkidle' });
@@ -106,9 +107,9 @@ console.log('   - Kartu Statistik Kepekatan Tampil:', hasKepekatan);
 console.log('   - Kartu Statistik Kesesuaian Warna Tampil:', hasKesesuaian);
 console.log('   - Kartu Statistik Serat Kayu Tampil:', hasSerat);
 
-const hasHeatmap = latestText.includes('PETA PETAK SERAT KAYU AI');
+const hasHeatmap = latestText.includes('PETA PERBEDAAN SERAT');
 const cellCount = await page.locator('[title*="Petak [Baris"]').count();
-console.log('   - Peta Petak Serat Kayu AI (AnomalyDINO) Tampil:', hasHeatmap);
+console.log('   - Peta Perbedaan Serat Deterministik Tampil:', hasHeatmap);
 console.log(`   - Jumlah Kotak Petak Serat Mikro Terbentuk: ${cellCount} petak`);
 
 // Uji dragging selector secara cepat dan mulus
@@ -130,12 +131,61 @@ if (await roiElement.isVisible()) {
   }
 }
 
-console.log('13. Mengambil Screenshot Bukti Visual Layar Utama...');
-const screenshotPath = 'C:\\Users\\shint\\.gemini\\antigravity\\brain\\10babefe-7e2a-4e74-83a2-acb363927ee4\\browser_test_playwright.png';
+
+// ACCESSIBILITY READABILITY ASSERTIONS
+console.log('13. Menguji keterbacaan operator low vision...');
+const tooSmallText = await page
+  .locator('.operator-readable span, .operator-readable p, .operator-readable button, .operator-readable label, .operator-readable h1, .operator-readable h2, .operator-readable h3, .operator-readable h4, .operator-readable input, .operator-readable textarea')
+  .evaluateAll((elements) =>
+    elements
+      .filter((el) => {
+        const rect = el.getBoundingClientRect();
+        const text = (el.textContent || '').trim();
+        return rect.width > 0 && rect.height > 0 && text.length > 0;
+      })
+      .map((el) => ({
+        text: (el.textContent || '').trim().slice(0, 80),
+        px: Number.parseFloat(getComputedStyle(el).fontSize),
+      }))
+      .filter((item) => item.px < 15.9)
+      .slice(0, 20)
+  );
+if (tooSmallText.length > 0) {
+  throw new Error(`Teks operasional masih di bawah 16px: ${JSON.stringify(tooSmallText)}`);
+}
+
+for (const selector of ['#btn-recompare', '#btn-open-qc-report', '#btn-final-pass', '#btn-final-fail']) {
+  const target = page.locator(selector);
+  if (!(await target.isVisible())) throw new Error(`Kontrol utama tidak terlihat: ${selector}`);
+  const box = await target.boundingBox();
+  const fontSize = await target.evaluate((el) => Number.parseFloat(getComputedStyle(el).fontSize));
+  if (!box || box.height < 44 || fontSize < 16) {
+    throw new Error(`Kontrol utama terlalu kecil: ${selector}, height=${box?.height}, font=${fontSize}`);
+  }
+}
+
+if (!(await page.getByText('Skor Selisih Warna', { exact: true }).first().isVisible())) {
+  throw new Error('Skor objektif Delta E tidak tampil sebagai bukti utama.');
+}
+
+await page.setViewportSize({ width: 720, height: 1000 });
+await page.waitForTimeout(250);
+const horizontalOverflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+if (horizontalOverflow > 2) {
+  throw new Error(`Layout gagal reflow pada simulasi 200% zoom: overflow horizontal ${horizontalOverflow}px`);
+}
+await page.setViewportSize({ width: 1440, height: 1000 });
+console.log('   - Minimum teks operasional: >= 16px');
+console.log('   - Tombol utama: >= 44px dan font >= 16px');
+console.log('   - Reflow simulasi 200% zoom: LULUS tanpa overflow horizontal');
+
+console.log('14. Mengambil Screenshot Bukti Visual Layar Utama...');
+
+const screenshotPath = 'test-artifacts/browser_test_playwright.png';
 await page.screenshot({ path: screenshotPath, fullPage: true });
 console.log('   - Screenshot berhasil disimpan di:', screenshotPath);
 
-console.log('14. Menguji Modal Laporan Pemeriksaan QC (Siap Cetak / PDF)...');
+console.log('15. Menguji Modal Laporan Pemeriksaan QC (Siap Cetak / PDF)...');
 const btnReport = page.locator('#btn-open-qc-report');
 const hasBtnReport = await btnReport.isVisible();
 console.log('   - Tombol Cetak Laporan QC Tampil:', hasBtnReport);
@@ -149,7 +199,7 @@ if (hasBtnReport) {
   console.log('   - Tombol Cetak / Simpan PDF Tersedia:', hasPrintBtn);
 
   // Ambil screenshot laporan sertifikat QC
-  const reportScreenshotPath = 'C:\\Users\\shint\\.gemini\\antigravity\\brain\\10babefe-7e2a-4e74-83a2-acb363927ee4\\qc_certificate_report_verified.png';
+  const reportScreenshotPath = 'test-artifacts/qc_certificate_report_verified.png';
   await page.screenshot({ path: reportScreenshotPath, fullPage: true });
   console.log('   - Screenshot Sertifikat QC berhasil disimpan di:', reportScreenshotPath);
 }
