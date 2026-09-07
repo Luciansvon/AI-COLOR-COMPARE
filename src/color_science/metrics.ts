@@ -50,7 +50,12 @@ export function extractROIStats(rgbaPixels: Uint8ClampedArray | number[]): Pixel
     sumB += b;
 
     if (r < 5 && g < 5 && b < 5) shadowClipped++;
-    if (r > 250 && g > 250 && b > 250) highlightClipped++;
+
+    // Untuk QC warna, satu kanal yang mentok sudah cukup merusak informasi rona.
+    // Contoh: R=255, G=170, B=90 belum tampak putih, tetapi kanal merah sudah tidak
+    // menyimpan informasi tambahan. Karena itu highlight clipping tidak boleh hanya
+    // mendeteksi piksel yang ketiga kanalnya sekaligus mendekati putih.
+    if (r > 250 || g > 250 || b > 250) highlightClipped++;
 
     const lab = rgbToLab({ r, g, b });
     lValues[i] = lab.l;
@@ -161,7 +166,7 @@ export function compareStats(
     label = 'Kemungkinan Sesuai';
     confidence = shadowClipped || highlightClipped ? 'Sedang' : 'Tinggi';
     primaryCause = 'Pencahayaan / White Balance';
-    explanation = 'Perbedaan warna sangat kecil (mata manusia hampir tidak dapat melihat selisih). Nilai ΔE00 berada dalam batas toleransi aman.';
+    explanation = 'Perbedaan warna relatif kecil menurut ambang internal aplikasi. Ini bukan toleransi universal; keputusan tetap mengikuti toleransi master/proyek dan penilaian operator.';
   } else if (deltaE00 <= 4.5) {
     status = 'perlu_dicek';
     label = 'Perlu Dicek';
@@ -183,8 +188,12 @@ export function compareStats(
     confidence = 'Sedang';
 
     if (isChromaticShiftSignificant) {
-      primaryCause = 'Material / Finishing';
-      explanation = `Perbedaan warna cukup nyata (ΔE00: ${deltaE00.toFixed(2)}). Karakter rona kayu tampak berbeda dari master panel fisik. Ada indikasi perbedaan lapisan finishing atau lot kayu.`;
+      // Guardrail penting: chromatic shift dari satu capture tidak cukup untuk membedakan
+      // perubahan material/finishing dari WB, spektrum lampu, profil kamera, refleksi,
+      // atau sudut. Material baru boleh dicurigai setelah kondisi capture dikendalikan
+      // dan hasil tetap berulang terhadap physical master.
+      primaryCause = 'Belum Pasti';
+      explanation = `Perbedaan rona cukup nyata (ΔE00: ${deltaE00.toFixed(2)}), tetapi satu foto belum cukup untuk menyimpulkan material atau finishing berbeda. Stabilkan White Balance, lampu, eksposur, sudut/refleksi, dan profil kamera; foto ulang terhadap master. Jika perbedaan tetap konsisten pada capture terkontrol, barulah material/finishing patut dicurigai.`;
     } else {
       primaryCause = 'Pencahayaan / White Balance';
       explanation = `Perbedaan sangat dipengaruhi oleh perbedaan pencahayaan yang ekstrem (ΔL*: ${deltaL.toFixed(2)}). Disarankan memeriksa setelan lampu studio sebelum memutuskan material cacat.`;
@@ -193,7 +202,7 @@ export function compareStats(
 
   if (shadowClipped || highlightClipped) {
     confidence = 'Rendah';
-    explanation += ' (Peringatan: Terdapat area terlalu gelap/terpotong atau terlalu silau sehingga tingkat keyakinan diturunkan).';
+    explanation += ' (Peringatan: Terdapat area terlalu gelap/terpotong atau kanal warna terlalu terang sehingga tingkat keyakinan diturunkan).';
   }
 
   const estimated: EstimatedRecommendation = {
