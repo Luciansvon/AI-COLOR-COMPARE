@@ -3,6 +3,7 @@
 
 import { MeasuredEvidence, TextureEvidence, UnifiedMaterialReport } from '../types';
 import { buildMasterMemoryBank, detectPatchAnomalies, MasterMemoryBank } from './deep_texture';
+import { analyzeRgbBalance } from './rgb_analysis';
 
 /**
  * Konversi RGBA ke Grayscale 8-bit (Rec. 601)
@@ -184,6 +185,8 @@ export function evaluateMaterialFusion(
   const grainDiff = calculateGrainAngleDiff(masterGrain.dominantAngle, prodGrain.dominantAngle);
   const isGrainMatching = textureSim >= 0.82 && (!masterGrain.isDirectional || grainDiff <= 35);
   const isColorMatching = colorMeasured.deltaE00 <= 2.5;
+  const rgbBalance = analyzeRgbBalance(colorMeasured);
+  const rgbExplanation = rgbBalance.available ? ` ${rgbBalance.summary}` : '';
 
   // Analisis Patch Anomaly AnomalyDINO / PatchCore
   let patchResult;
@@ -197,8 +200,11 @@ export function evaluateMaterialFusion(
       diagnosisType: 'Conforming',
       title: 'Sangat Cocok (Lolos Sempurna)',
       primaryCause: 'Kesesuaian Material Terpenuhi',
-      humanExplanation: 'Warna, gelap-terang, dan karakter serat kayu sangat sesuai dengan master panel fisik.',
-      studioAction: 'Aman untuk dipotret dan lolos QC studio. Tidak memerlukan penyesuaian apapun.',
+      humanExplanation: `Warna, gelap-terang, dan karakter serat kayu sangat sesuai dengan master panel fisik.${rgbExplanation}`,
+      studioAction:
+        rgbBalance.available && rgbBalance.bias !== 'balanced'
+          ? `Hasil masih dalam toleransi. Untuk menyamakan capture lebih rapat: ${rgbBalance.cameraAction}`
+          : 'Aman untuk dipotret dan lolos QC studio. Tidak memerlukan penyesuaian apapun.',
       confidenceLevel: 'Tinggi',
       textureSimilarityScore: Number(textureSim.toFixed(2)),
       grainAngleDiffDeg: Math.round(grainDiff),
@@ -217,8 +223,10 @@ export function evaluateMaterialFusion(
       diagnosisType: 'IlluminationArtifact',
       title: 'Penyimpangan Cahaya Kamera (Bahan Sesuai)',
       primaryCause: cause,
-      humanExplanation: `Struktur pori-pori dan serat kayu terbukti identik dengan master fisik (kemiripan ${(textureSim * 100).toFixed(0)}%), namun warna bergeser akibat kondisi pemotretan.`,
-      studioAction: 'Cukup atur ulang lampu studio atau geser parameter warna kamera. Bahan finishing kayu tidak perlu diubah.',
+      humanExplanation: `Struktur pori-pori dan serat kayu terbukti identik dengan master fisik (kemiripan ${(textureSim * 100).toFixed(0)}%), namun warna bergeser akibat kondisi pemotretan.${rgbExplanation}`,
+      studioAction: rgbBalance.available
+        ? `${rgbBalance.cameraAction} Bahan finishing kayu tidak perlu diubah.`
+        : 'Cukup atur ulang lampu studio atau geser parameter warna kamera. Bahan finishing kayu tidak perlu diubah.',
       confidenceLevel: 'Tinggi',
       textureSimilarityScore: Number(textureSim.toFixed(2)),
       grainAngleDiffDeg: Math.round(grainDiff),
@@ -230,8 +238,8 @@ export function evaluateMaterialFusion(
       diagnosisType: 'MaterialMismatch',
       title: 'Ketidaksesuaian Bahan / Finishing',
       primaryCause: 'Bahan Kayu / Formula Finishing Berbeda',
-      humanExplanation: 'Perbedaan visual bukan berasal dari lampu kamera. Pola permukaan, tekstur, dan warna fisik berbeda dari sampel master.',
-      studioAction: 'Laporkan ke bagian produksi atau finishing kayu untuk pengecekan lot bahan.',
+      humanExplanation: `Perbedaan visual bukan berasal dari lampu kamera. Pola permukaan, tekstur, dan warna fisik berbeda dari sampel master.${rgbExplanation}`,
+      studioAction: 'Jangan kompensasi perbedaan ini dengan setting kamera terlebih dahulu. Laporkan ke bagian produksi atau finishing kayu untuk pengecekan lot bahan.',
       confidenceLevel: 'Tinggi',
       textureSimilarityScore: Number(textureSim.toFixed(2)),
       grainAngleDiffDeg: Math.round(grainDiff),
@@ -243,8 +251,8 @@ export function evaluateMaterialFusion(
       diagnosisType: 'SpeciesOrGrainMismatch',
       title: 'Perbedaan Jenis / Arah Urat Kayu',
       primaryCause: 'Karakter Serat Kayu Berbeda',
-      humanExplanation: 'Warna dasar tampak mendekati master, tetapi struktur pori dan urat kayu menunjukkan karakter kayu yang berbeda.',
-      studioAction: 'Periksa apakah grade atau arah potongan kayu sudah sesuai dengan standar katalog furnitur.',
+      humanExplanation: `Warna dasar tampak mendekati master, tetapi struktur pori dan urat kayu menunjukkan karakter kayu yang berbeda.${rgbExplanation}`,
+      studioAction: 'Periksa apakah grade atau arah potongan kayu sudah sesuai dengan standar katalog furnitur. Jangan ubah White Balance hanya untuk menutupi perbedaan serat.',
       confidenceLevel: 'Sedang',
       textureSimilarityScore: Number(textureSim.toFixed(2)),
       grainAngleDiffDeg: Math.round(grainDiff),

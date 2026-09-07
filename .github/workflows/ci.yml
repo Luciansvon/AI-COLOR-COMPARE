@@ -1,0 +1,46 @@
+name: CI Studio Color QC
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Siapkan Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Siapkan Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Pasang dependensi frontend
+        run: npm ci
+
+      - name: Uji frontend yang sudah ada
+        run: npm test
+
+      - name: Uji analisis RGB operator
+        run: npx tsx tests/rgb_analysis.test.ts
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Uji Rust core
+        run: cargo test --manifest-path src-tauri/Cargo.toml
+
+      - name: Periksa kompilasi Rust
+        run: cargo check --manifest-path src-tauri/Cargo.toml
