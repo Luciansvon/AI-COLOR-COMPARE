@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { MasterIdentity } from '../../types';
-import { X, Plus, ShieldCheck, Check, Info, Image as ImageIcon, Upload } from 'lucide-react';
+import { X, Plus, ShieldCheck, Check, Info } from 'lucide-react';
+import { useModalAccessibility } from '../common/useModalAccessibility';
 
 interface MasterLibraryModalProps {
   isOpen: boolean;
@@ -8,7 +9,7 @@ interface MasterLibraryModalProps {
   masters: MasterIdentity[];
   selectedMasterId: string;
   onSelectMaster: (masterId: string) => void;
-  onAddNewMaster: (master: Omit<MasterIdentity, 'id' | 'createdAt'>) => void;
+  onAddNewMaster: (master: Omit<MasterIdentity, 'id' | 'createdAt'>) => Promise<boolean>;
 }
 
 export const MasterLibraryModal: React.FC<MasterLibraryModalProps> = ({
@@ -22,47 +23,47 @@ export const MasterLibraryModal: React.FC<MasterLibraryModalProps> = ({
   const [isAdding, setIsAdding] = useState(false);
   const [newCode, setNewCode] = useState('');
   const [newName, setNewName] = useState('');
-  const [newCategory, setNewCategory] = useState<'wood' | 'metal' | 'fabric' | 'leather' | 'other'>('wood');
   const [newDesc, setNewDesc] = useState('');
-  const [newTolerance, setNewTolerance] = useState('2.2');
-  const [newImagePreview, setNewImagePreview] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const dialogRef = useModalAccessibility(isOpen, onClose);
 
   if (!isOpen) return null;
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      setNewImagePreview(event.target?.result as string);
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleCreate = (e: React.FormEvent) => {
+  const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCode.trim() || !newName.trim()) return;
 
-    onAddNewMaster({
-      code: newCode.trim().toUpperCase(),
-      name: newName.trim(),
-      category: newCategory,
-      description: newDesc.trim() || undefined,
-      referenceImageUrl: newImagePreview || undefined,
-      toleranceDeltaE: parseFloat(newTolerance) || 2.2,
-    });
+    setIsSaving(true);
+    let saved = false;
+    try {
+      saved = await onAddNewMaster({
+        code: newCode.trim().toUpperCase(),
+        name: newName.trim(),
+        category: 'wood',
+        description: newDesc.trim() || undefined,
+      });
+    } finally {
+      setIsSaving(false);
+    }
+
+    if (!saved) return;
 
     setNewCode('');
     setNewName('');
     setNewDesc('');
-    setNewTolerance('2.2');
-    setNewImagePreview(null);
     setIsAdding(false);
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-studio-900 border border-studio-800 rounded-xl max-w-xl w-full p-6 shadow-2xl space-y-4">
+    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="master-library-title"
+        tabIndex={-1}
+        className="bg-studio-900 border border-studio-800 rounded-xl max-w-xl w-full max-h-[90vh] overflow-y-auto p-6 shadow-2xl space-y-4"
+      >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-studio-800 pb-3">
           <div className="flex items-center space-x-2">
@@ -70,13 +71,13 @@ export const MasterLibraryModal: React.FC<MasterLibraryModalProps> = ({
               <ShieldCheck className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-sm font-semibold text-white">Daftar Papan Master Fisik (Master Library)</h3>
+              <h3 id="master-library-title" className="text-sm font-semibold text-white">Daftar Papan Master Fisik</h3>
               <p className="text-xs text-studio-400">
                 Pilih sampel fisik acuan untuk perbandingan warna produk
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1 rounded text-studio-400 hover:text-white">
+          <button type="button" onClick={onClose} aria-label="Tutup daftar master" className="p-1 rounded text-studio-400 hover:text-white">
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -97,8 +98,9 @@ export const MasterLibraryModal: React.FC<MasterLibraryModalProps> = ({
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-[11px] text-studio-400 block mb-1">Kode Master (Contoh: WN-05)</label>
+                <label htmlFor="new-master-code" className="text-[11px] text-studio-400 block mb-1">Kode Master (Contoh: WN-05)</label>
                 <input
+                  id="new-master-code"
                   type="text"
                   required
                   placeholder="Kode Master..."
@@ -108,8 +110,9 @@ export const MasterLibraryModal: React.FC<MasterLibraryModalProps> = ({
                 />
               </div>
               <div>
-                <label className="text-[11px] text-studio-400 block mb-1">Nama / Finishing</label>
+                <label htmlFor="new-master-name" className="text-[11px] text-studio-400 block mb-1">Nama / Finishing</label>
                 <input
+                  id="new-master-name"
                   type="text"
                   required
                   placeholder="Contoh: Walnut Natural Semi-Gloss"
@@ -120,45 +123,10 @@ export const MasterLibraryModal: React.FC<MasterLibraryModalProps> = ({
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-[11px] text-studio-400 block mb-1">Toleransi Selisih (ΔE₀₀)</label>
-                <input
-                  type="number"
-                  step="0.1"
-                  min="0.5"
-                  max="10.0"
-                  required
-                  value={newTolerance}
-                  onChange={(e) => setNewTolerance(e.target.value)}
-                  className="w-full bg-studio-900 border border-studio-700 rounded p-2 text-xs text-white font-mono"
-                />
-              </div>
-              <div>
-                <label className="text-[11px] text-studio-400 block mb-1">Foto Sampel Papan Master (Opsional)</label>
-                <label className="w-full bg-studio-900 hover:bg-studio-800 border border-studio-700 rounded p-2 text-xs text-studio-300 flex items-center justify-center gap-1.5 cursor-pointer truncate">
-                  <Upload className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                  <span className="truncate">{newImagePreview ? 'Foto Terpilih ✅' : 'Pilih Berkas Foto...'}</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageUpload}
-                    className="hidden"
-                  />
-                </label>
-              </div>
-            </div>
-
-            {newImagePreview && (
-              <div className="flex items-center gap-2 p-2 bg-studio-900/90 rounded border border-studio-800">
-                <img src={newImagePreview} alt="Pratinjau Master" className="w-10 h-10 object-cover rounded border border-studio-700" />
-                <span className="text-[11px] text-emerald-400 font-medium">Foto master fisik siap dijadikan acuan visual!</span>
-              </div>
-            )}
-
             <div>
-              <label className="text-[11px] text-studio-400 block mb-1">Keterangan Tambahan</label>
+              <label htmlFor="new-master-description" className="text-[11px] text-studio-400 block mb-1">Keterangan Tambahan</label>
               <input
+                id="new-master-description"
                 type="text"
                 placeholder="Catatan papan sampel fisik di rak studio..."
                 value={newDesc}
@@ -177,14 +145,16 @@ export const MasterLibraryModal: React.FC<MasterLibraryModalProps> = ({
               </button>
               <button
                 type="submit"
+                disabled={isSaving}
                 className="px-4 py-1.5 rounded bg-amber-500 hover:bg-amber-400 text-black font-semibold text-xs transition"
               >
-                Simpan Master
+                {isSaving ? 'Menyimpan...' : 'Simpan Master'}
               </button>
             </div>
           </form>
         ) : (
           <button
+            type="button"
             onClick={() => setIsAdding(true)}
             id="btn-add-new-master"
             className="w-full py-2 border border-dashed border-studio-700 hover:border-amber-400/60 rounded-lg text-xs font-semibold text-studio-300 hover:text-amber-300 flex items-center justify-center gap-1.5 transition"
@@ -199,13 +169,14 @@ export const MasterLibraryModal: React.FC<MasterLibraryModalProps> = ({
           {masters.map((m) => {
             const isSelected = m.id === selectedMasterId;
             return (
-              <div
+              <button
+                type="button"
                 key={m.id}
                 onClick={() => {
                   onSelectMaster(m.id);
                   onClose();
                 }}
-                className={`p-3 rounded-lg border flex items-center justify-between cursor-pointer transition select-none ${
+                className={`w-full text-left p-3 rounded-lg border flex items-center justify-between cursor-pointer transition select-none ${
                   isSelected
                     ? 'border-amber-500 bg-amber-500/10 text-white'
                     : 'border-studio-800 bg-studio-950/40 text-studio-300 hover:border-studio-700'
@@ -244,7 +215,7 @@ export const MasterLibraryModal: React.FC<MasterLibraryModalProps> = ({
                     <span>Dipilih</span>
                   </div>
                 )}
-              </div>
+              </button>
             );
           })}
         </div>

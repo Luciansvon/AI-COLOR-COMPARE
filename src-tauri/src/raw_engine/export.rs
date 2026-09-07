@@ -1,12 +1,14 @@
 use image::ColorType;
-use std::fs::{self, File};
-use std::io::{self, BufWriter};
+use std::fs::{self, File, OpenOptions};
+use std::io::{self, BufWriter, Write};
 use std::path::{Path, PathBuf};
+use uuid::Uuid;
 
 #[derive(Debug)]
 pub enum ExportError {
     IoError(io::Error),
     ImageError(String),
+    InvalidInput(String),
 }
 
 impl From<io::Error> for ExportError {
@@ -50,6 +52,50 @@ pub fn get_safe_export_path(base_dir: &Path, base_name: &str, extension: &str) -
     candidate
 }
 
+fn validate_export_input(rgb_pixels: &[u8], width: u32, height: u32) -> Result<(), ExportError> {
+    if width == 0 || height == 0 {
+        return Err(ExportError::InvalidInput(
+            "Dimensi ekspor harus lebih besar dari nol".to_string(),
+        ));
+    }
+    let expected_len = (width as usize)
+        .checked_mul(height as usize)
+        .and_then(|pixels| pixels.checked_mul(3))
+        .ok_or_else(|| ExportError::InvalidInput("Dimensi ekspor terlalu besar".to_string()))?;
+    if rgb_pixels.len() != expected_len {
+        return Err(ExportError::InvalidInput(format!(
+            "Buffer RGB tidak cocok dengan dimensi: butuh {} byte, menerima {}",
+            expected_len,
+            rgb_pixels.len()
+        )));
+    }
+    Ok(())
+}
+
+fn create_unique_temp_file(parent: &Path) -> Result<(PathBuf, File), ExportError> {
+    for _ in 0..8 {
+        let temp_path = parent.join(format!(
+            ".tmp_export_{}_{}.jpg",
+            std::process::id(),
+            Uuid::new_v4()
+        ));
+        match OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&temp_path)
+        {
+            Ok(file) => return Ok((temp_path, file)),
+            Err(error) if error.kind() == io::ErrorKind::AlreadyExists => continue,
+            Err(error) => return Err(ExportError::IoError(error)),
+        }
+    }
+
+    Err(ExportError::IoError(io::Error::new(
+        io::ErrorKind::AlreadyExists,
+        "Tidak dapat membuat nama berkas sementara yang unik",
+    )))
+}
+
 /// Ekspor non-destruktif ke file JPEG sRGB baru menggunakan penulisan atomik (atomic temp file write)
 pub fn export_srgb_jpeg(
     output_path: &Path,
@@ -58,6 +104,8 @@ pub fn export_srgb_jpeg(
     height: u32,
     quality: u8,
 ) -> Result<PathBuf, ExportError> {
+    validate_export_input(rgb_pixels, width, height)?;
+
     let parent = output_path
         .parent()
         .unwrap_or_else(|| Path::new("."));
@@ -66,20 +114,22 @@ pub fn export_srgb_jpeg(
         fs::create_dir_all(parent)?;
     }
 
-    // Tulis ke berkas sementara terlebih dahulu agar atomik dan aman dari interupsi
-    let temp_path = parent.join(format!(
-        ".tmp_export_{}_{}",
-        std::process::id(),
-        chrono::Utc::now().timestamp_nanos_opt().unwrap_or(0)
-    ));
+    // Tulis ke berkas sementara terlebih dahulu agar atomik dan aman dari interupsi.
+    let (temp_path, file) = create_unique_temp_file(parent)?;
 
     let encode_result = (|| -> Result<(), ExportError> {
-        let file = File::create(&temp_path)?;
-        let writer = BufWriter::new(file);
-        let mut encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(writer, quality);
-        encoder
-            .encode(rgb_pixels, width, height, ColorType::Rgb8.into())
-            .map_err(|e| ExportError::ImageError(e.to_string()))?;
+        let mut writer = BufWriter::new(file);
+        {
+            let mut encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut writer, quality.clamp(1, 100));
+            encoder
+                .encode(rgb_pixels, width, height, ColorType::Rgb8.into())
+                .map_err(|e| ExportError::ImageError(e.to_string()))?;
+        }
+        writer.flush()?;
+        writer.get_ref().sync_all()?;
+        writer
+            .into_inner()
+            .map_err(|error| ExportError::IoError(error.into_error()))?;
         Ok(())
     })();
 
@@ -88,8 +138,11 @@ pub fn export_srgb_jpeg(
         return Err(err);
     }
 
-    // Rename atomik ke target akhir
-    fs::rename(&temp_path, output_path)?;
+    // hard_link membuat target baru tanpa menimpa berkas yang muncul akibat race.
+    // Setelah link berhasil, berkas sementara dihapus; data tetap berada di target.
+    let link_result = fs::hard_link(&temp_path, output_path);
+    let _ = fs::remove_file(&temp_path);
+    link_result?;
 
     Ok(output_path.to_path_buf())
 }
@@ -132,5 +185,40 @@ mod tests {
         // Bersihkan
         let _ = fs::remove_file(out_path);
         let _ = fs::remove_dir(temp_dir);
+    }
+
+    #[test]
+    fn test_export_rejects_rgb_length_mismatch_without_creating_file() {
+        let temp_dir = std::env::temp_dir().join("studio_qc_export_invalid_input_test");
+        let _ = fs::create_dir_all(&temp_dir);
+        let out_path = temp_dir.join("invalid_output.jpg");
+
+        let result = export_srgb_jpeg(&out_path, &[128u8; 3], 2, 2, 90);
+
+        assert!(matches!(result, Err(ExportError::InvalidInput(_))));
+        assert!(!out_path.exists());
+        let _ = fs::remove_dir_all(temp_dir);
+    }
+
+    #[test]
+    fn test_export_does_not_overwrite_existing_target() {
+        let temp_dir = std::env::temp_dir().join("studio_qc_export_no_clobber_test");
+        let _ = fs::create_dir_all(&temp_dir);
+        let out_path = temp_dir.join("existing_output.jpg");
+        let original = b"existing-bytes";
+        fs::write(&out_path, original).expect("Gagal menulis target uji");
+
+        let rgb_data = vec![128u8; 4 * 4 * 3];
+        let result = export_srgb_jpeg(&out_path, &rgb_data, 4, 4, 90);
+
+        assert!(result.is_err());
+        assert_eq!(fs::read(&out_path).expect("Gagal membaca target uji"), original);
+        let temp_files: Vec<_> = fs::read_dir(&temp_dir)
+            .expect("Gagal membaca direktori uji")
+            .filter_map(Result::ok)
+            .filter(|entry| entry.file_name().to_string_lossy().starts_with(".tmp_export_"))
+            .collect();
+        assert!(temp_files.is_empty(), "Berkas sementara tidak dibersihkan");
+        let _ = fs::remove_dir_all(temp_dir);
     }
 }

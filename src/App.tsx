@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Header } from './components/common/Header';
 import { MainQCScreen } from './components/qc/MainQCScreen';
 import { MasterLibraryModal } from './components/master/MasterLibraryModal';
@@ -27,40 +27,71 @@ export const App: React.FC = () => {
   // State Pesan Notifikasi Sederhana
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [toastKind, setToastKind] = useState<'success' | 'error'>('success');
+  const [storageLoadError, setStorageLoadError] = useState<string | null>(null);
+  const [isLoadingStorage, setIsLoadingStorage] = useState(true);
+  const [storageRetryKey, setStorageRetryKey] = useState(0);
+  const didChangeMasterRef = useRef(false);
 
   // Muat data dari SQLite via Tauri saat aplikasi dibuka
   useEffect(() => {
-    async function loadData() {
-      const storedMasters = await getMastersFromStorage();
-      if (storedMasters && storedMasters.length > 0) {
-        setMasters(storedMasters);
-        setCurrentMasterId(storedMasters[0].id);
-      }
+    let cancelled = false;
 
-      const storedRecords = await getQCRecordsFromStorage();
-      if (storedRecords && storedRecords.length > 0) {
-        setHistoryRecords(storedRecords);
+    async function loadData() {
+      setIsLoadingStorage(true);
+      try {
+        const storedMasters = await getMastersFromStorage();
+        if (!cancelled && storedMasters && storedMasters.length > 0) {
+          setMasters(storedMasters);
+          if (!didChangeMasterRef.current) {
+            setCurrentMasterId(storedMasters[0].id);
+          }
+        }
+
+        const storedRecords = await getQCRecordsFromStorage();
+        if (!cancelled && storedRecords && storedRecords.length > 0) {
+          setHistoryRecords(storedRecords);
+        }
+        if (!cancelled) setStorageLoadError(null);
+      } catch (error) {
+        console.error('[Storage] Gagal memuat data awal:', error);
+        if (!cancelled) {
+          setStorageLoadError('Database lokal belum bisa dibaca. Tampilan memakai data awal sesi sampai koneksi dicoba lagi.');
+          showToast('Database lokal belum bisa dibaca.', 'error');
+        }
+      } finally {
+        if (!cancelled) setIsLoadingStorage(false);
       }
     }
     loadData();
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [storageRetryKey]);
 
   const currentMaster = masters.find((m) => m.id === currentMasterId) || masters[0];
 
-  const handleAddNewMaster = async (newMasterData: Omit<MasterIdentity, 'id' | 'createdAt'>) => {
+  const handleAddNewMaster = async (newMasterData: Omit<MasterIdentity, 'id' | 'createdAt'>): Promise<boolean> => {
     const newMaster: MasterIdentity = {
       ...newMasterData,
       id: `master-${Date.now()}`,
       createdAt: new Date().toISOString(),
     };
 
-    const persisted = await persistMasterToStorage(newMaster);
+    let persisted = false;
+    try {
+      persisted = await persistMasterToStorage(newMaster);
+    } catch (error) {
+      console.error('[Storage] Gagal menyimpan master:', error);
+      showToast(`Master "${newMaster.code}" gagal disimpan.`, 'error');
+      return false;
+    }
     if (isTauriEnvironment() && !persisted) {
       showToast(`Master "${newMaster.code}" gagal disimpan. Data tidak ditambahkan agar UI tidak berbeda dengan database.`, 'error');
-      return;
+      return false;
     }
 
     setMasters((prev) => [...prev, newMaster]);
+    didChangeMasterRef.current = true;
     setCurrentMasterId(newMaster.id);
     showToast(
       isTauriEnvironment()
@@ -68,6 +99,7 @@ export const App: React.FC = () => {
         : `Master "${newMaster.code} — ${newMaster.name}" ditambahkan sementara untuk sesi pratinjau browser.`,
       'success'
     );
+    return true;
   };
 
   const handleSaveQCRecord = async (record: QCRecord): Promise<boolean> => {
@@ -105,6 +137,27 @@ export const App: React.FC = () => {
         historyCount={historyRecords.length}
       />
 
+      {!isTauriEnvironment() && (
+        <div className="mx-3 sm:mx-6 mt-3 rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-xs text-sky-200 flex flex-wrap items-center justify-between gap-2">
+          <span>Mode pratinjau browser: perubahan hanya berlaku selama sesi ini.</span>
+          <span className="font-mono text-[10px] text-sky-300/80">Penyimpanan permanen: aplikasi desktop</span>
+        </div>
+      )}
+
+      {storageLoadError && (
+        <div className="mx-3 sm:mx-6 mt-3 rounded-lg border border-rose-500/40 bg-rose-500/10 px-3 py-2.5 text-xs text-rose-200 flex flex-wrap items-center justify-between gap-3" role="alert">
+          <span>{storageLoadError}</span>
+          <button
+            type="button"
+            onClick={() => setStorageRetryKey((value) => value + 1)}
+            disabled={isLoadingStorage}
+            className="rounded-md border border-rose-400/40 px-2.5 py-1 font-semibold text-rose-100 hover:bg-rose-500/20 disabled:opacity-50"
+          >
+            {isLoadingStorage ? 'Mencoba...' : 'Coba lagi'}
+          </button>
+        </div>
+      )}
+
       {/* Main Content Area */}
       <main className="flex-1 px-6 pt-6">
         <MainQCScreen
@@ -120,6 +173,7 @@ export const App: React.FC = () => {
         masters={masters}
         selectedMasterId={currentMasterId}
         onSelectMaster={(id) => {
+          didChangeMasterRef.current = true;
           setCurrentMasterId(id);
           const m = masters.find((item) => item.id === id);
           if (m) showToast(`Master acuan diganti ke: ${m.code} — ${m.name}`);

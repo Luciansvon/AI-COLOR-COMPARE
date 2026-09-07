@@ -33,3 +33,6 @@ target
 test_assets
 test-artifacts
 release-artifacts
+dist_release
+artifacts
+src-tauri/target_*

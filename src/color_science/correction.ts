@@ -107,12 +107,23 @@ export function calculateRecommendedCorrection(pairs: ROIAnalysisPair[]): {
   );
 
   // 4. Periksa Guardrail untuk No-Master ROI (REQ-NOMASTER-002, REQ-NOMASTER-003)
+  let safeAvgExp = avgExp;
   const noMasterPairs = pairs.filter((p) => p.roi.role === 'guardrail_only' && p.measured);
   for (const nm of noMasterPairs) {
     const m = nm.measured!;
     // Jika koreksi global akan membuat area no-master menjadi over-saturated atau clipped
-    if (m.productBrightness + avgExp * 25 > 95) {
-      // Peringatan guardrail: batasi kenaikan eksposur
+    if (m.productBrightness + safeAvgExp * 25 > 95) {
+      // Batasi kenaikan eksposur agar guardrail tidak silau putih / blown out (>95)
+      const maxAllowedExp = Math.max(-2, Number(((95 - m.productBrightness) / 25).toFixed(2)));
+      if (safeAvgExp > maxAllowedExp) {
+        safeAvgExp = maxAllowedExp;
+      }
+    } else if (m.productBrightness + safeAvgExp * 25 < 5) {
+      // Batasi penurunan eksposur agar guardrail tidak terlalu gelap / crushed (<5)
+      const minAllowedExp = Math.min(2, Number(((5 - m.productBrightness) / 25).toFixed(2)));
+      if (safeAvgExp < minAllowedExp) {
+        safeAvgExp = minAllowedExp;
+      }
     }
   }
 
@@ -120,7 +131,7 @@ export function calculateRecommendedCorrection(pairs: ROIAnalysisPair[]): {
     recommended: {
       temperatureK: hasConflict ? 0 : avgTemp,
       tint: hasConflict ? 0 : avgTint,
-      exposureEV: hasConflict ? 0 : avgExp,
+      exposureEV: hasConflict ? 0 : safeAvgExp,
       brightness: 0,
       contrast: 0,
       saturation: hasConflict ? 0 : avgSat,

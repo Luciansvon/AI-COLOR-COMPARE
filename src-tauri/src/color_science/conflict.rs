@@ -65,20 +65,20 @@ pub fn calculate_recommended_correction(rois: &[ROIInput]) -> (CorrectionParams,
 
     let targets: Vec<Target> = master_backed
         .iter()
-        .map(|r| {
-            let m = r.measured.unwrap();
+        .filter_map(|r| {
+            let m = r.measured?;
             let temp_target = (-m.delta_b * 65.0).round() as i32;
             let tint_target = (-m.delta_a * 2.5).round() as i32;
             let exp_target = ((-m.delta_l * 0.035) * 100.0).round() / 100.0;
             let sat_target = (-m.saturation_diff_percent * 0.5).round() as i32;
 
-            Target {
+            Some(Target {
                 name: r.name.to_string(),
                 temp_target,
                 tint_target,
                 exp_target,
                 sat_target,
-            }
+            })
         })
         .collect();
 

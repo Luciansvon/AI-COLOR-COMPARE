@@ -154,6 +154,39 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
   const [isRecomparing, setIsRecomparing] = useState<boolean>(false);
   const [recompareSuccess, setRecompareSuccess] = useState<boolean>(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState<boolean>(false);
+  const [productFailReasons, setProductFailReasons] = useState<string[]>([]);
+  const [productFailNote, setProductFailNote] = useState<string>('');
+
+  const resetAnalysis = (nextStatus: 'idle' | 'ready') => {
+    setRoiMeasured({});
+    setRoiEstimated({});
+    setRoiFusion({});
+    setRoiDecisions({});
+    setProductDecision(null);
+    setProductFailReasons([]);
+    setProductFailNote('');
+    setIsReportModalOpen(false);
+    setFailModalOpen(false);
+    setCorrectionParams({
+      temperatureK: 0,
+      tint: 0,
+      exposureEV: 0,
+      brightness: 0,
+      contrast: 0,
+      saturation: 0,
+    });
+    setRecommendedCorrection({
+      temperatureK: 0,
+      tint: 0,
+      exposureEV: 0,
+      brightness: 0,
+      contrast: 0,
+      saturation: 0,
+    });
+    setCorrectionConflict({ hasConflict: false });
+    setIsPreviewingCorrection(false);
+    setComparisonStatus(nextStatus);
+  };
 
   // 1. Muat Gambar hanya jika pengguna memilih Mode Demo Simulasi
   useEffect(() => {
@@ -202,6 +235,7 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
   };
 
   const handleMasterUpload = (file: File) => {
+    resetAnalysis(productImageSrc ? 'ready' : 'idle');
     const reader = new FileReader();
     reader.onload = (event) => {
       const dataUrl = event.target?.result as string;
@@ -217,6 +251,7 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
   };
 
   const handleProductUpload = (file: File) => {
+    resetAnalysis(masterImageSrc ? 'ready' : 'idle');
     const reader = new FileReader();
     reader.onload = (event) => {
       const dataUrl = event.target?.result as string;
@@ -504,6 +539,8 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
         },
       }));
     } else {
+      setProductFailReasons(reasons);
+      setProductFailNote(note);
       const saved = await saveFinalRecord('FAIL', reasons, note);
       if (saved) setProductDecision('FAIL');
     }
@@ -568,9 +605,15 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
               setMasterFileName('');
               setProductImageSrc('');
               setPreviewImageSrc('');
-              setRoiMeasured({});
-              setRoiEstimated({});
-              setRoiFusion({});
+              setImageMetadata({
+                fileName: '',
+                fileSize: 0,
+                format: 'Belum ada foto',
+                cameraModel: 'Metadata kamera belum dibaca dari file ini',
+                lens: 'Tidak tersedia',
+                whiteBalance: 'Tidak tersedia',
+              });
+              resetAnalysis('idle');
             }}
             className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
               appMode === 'upload'
@@ -1188,7 +1231,8 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
         measuredMap={roiMeasured}
         fusionMap={roiFusion}
         decision={productDecision}
-        failReasons={productDecision === 'FAIL' ? ['Warna atau serat kayu tidak memenuhi toleransi master'] : undefined}
+        failReasons={productDecision === 'FAIL' ? productFailReasons : undefined}
+        note={productDecision === 'FAIL' ? productFailNote : undefined}
         correctionParams={correctionParams}
       />
     </div>

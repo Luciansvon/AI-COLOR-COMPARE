@@ -1,6 +1,7 @@
 import React from 'react';
 import { ROIItem, MeasuredEvidence, UnifiedMaterialReport, CorrectionParams, ImageMetadata } from '../../types';
-import { X, Printer, CheckCircle2, XCircle, ShieldCheck, Layers, FileText } from 'lucide-react';
+import { X, Printer, CheckCircle2, XCircle, Layers, FileText } from 'lucide-react';
+import { useModalAccessibility } from '../common/useModalAccessibility';
 
 interface QCReportModalProps {
   isOpen: boolean;
@@ -33,6 +34,8 @@ export const QCReportModal: React.FC<QCReportModalProps> = ({
   note,
   correctionParams,
 }) => {
+  const dialogRef = useModalAccessibility(isOpen, onClose);
+
   if (!isOpen) return null;
 
   const handlePrint = () => {
@@ -54,18 +57,21 @@ export const QCReportModal: React.FC<QCReportModalProps> = ({
 
   const masterColorRgb = primaryMeasured?.masterRgb
     ? `rgb(${primaryMeasured.masterRgb.r}, ${primaryMeasured.masterRgb.g}, ${primaryMeasured.masterRgb.b})`
-    : '#4a2f1b';
+    : undefined;
   const productColorRgb = primaryMeasured?.productRgb
     ? `rgb(${primaryMeasured.productRgb.r}, ${primaryMeasured.productRgb.g}, ${primaryMeasured.productRgb.b})`
-    : '#52341e';
-
-  const colorAccuracy = primaryMeasured
-    ? Math.max(0, Math.min(100, Math.round(100 - primaryMeasured.deltaE00 * 7.5)))
-    : 100;
+    : undefined;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto print:p-0 print:bg-white print:static">
-      <div className="bg-studio-900 border border-studio-800 rounded-2xl max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden print:max-w-none print:max-h-none print:border-none print:shadow-none print:bg-white print:text-black">
+    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto print:p-0 print:bg-white print:static" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="qc-report-title"
+        tabIndex={-1}
+        className="bg-studio-900 border border-studio-800 rounded-2xl max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden print:max-w-none print:max-h-none print:border-none print:shadow-none print:bg-white print:text-black"
+      >
         {/* Header Aksi (Tidak Ikut Dicetak) */}
         <div className="p-4 border-b border-studio-800 flex items-center justify-between bg-studio-950 print:hidden">
           <div className="flex items-center space-x-2">
@@ -73,8 +79,8 @@ export const QCReportModal: React.FC<QCReportModalProps> = ({
               <FileText className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-white">Lembar Laporan Pemeriksaan QC Studio</h3>
-              <p className="text-xs text-studio-400">Format resmi siap cetak / simpan sebagai PDF untuk klien & produksi</p>
+              <h3 id="qc-report-title" className="text-sm font-bold text-white">Laporan Perbandingan QC Studio</h3>
+              <p className="text-xs text-studio-400">Ringkasan data foto dan catatan operator, siap dicetak atau disimpan sebagai PDF</p>
             </div>
           </div>
 
@@ -87,7 +93,7 @@ export const QCReportModal: React.FC<QCReportModalProps> = ({
               <Printer className="w-4 h-4" />
               <span>Cetak / Simpan PDF</span>
             </button>
-            <button onClick={onClose} className="p-1.5 rounded-lg text-studio-400 hover:text-white hover:bg-studio-800">
+            <button type="button" onClick={onClose} aria-label="Tutup laporan QC" className="p-1.5 rounded-lg text-studio-400 hover:text-white hover:bg-studio-800">
               <X className="w-5 h-5" />
             </button>
           </div>
@@ -100,15 +106,19 @@ export const QCReportModal: React.FC<QCReportModalProps> = ({
             <div>
               <div className="flex items-center space-x-2">
                 <span className="bg-gray-900 text-white font-mono text-xs px-2 py-0.5 rounded font-bold">QC-STUDIO</span>
-                <h1 className="text-xl font-black tracking-tight text-gray-900">SERTIFIKAT KONSISTENSI WARNA & SERAT KAYU</h1>
+                <h1 className="text-xl font-black tracking-tight text-gray-900">LAPORAN PERBANDINGAN WARNA & TEKSTUR</h1>
               </div>
-              <p className="text-xs text-gray-600 mt-1">Sistem Pengukuran Spektral & Validasi Tekstur Permukaan Furnitur</p>
+              <p className="text-xs text-gray-600 mt-1">Ringkasan perbandingan piksel foto dan tekstur lokal dari area yang dipilih operator</p>
             </div>
             <div className="text-right text-xs text-gray-500 font-mono">
               <div>Tanggal: {currentDate}</div>
               <div>ID Laporan: QC-{Date.now().toString().slice(-8)}</div>
             </div>
           </div>
+
+          <p className="text-[11px] text-gray-600 -mt-3">
+            Sumber data: nilai warna dan tekstur dihitung dari foto yang dimasukkan. Laporan ini bukan pengukuran langsung benda fisik atau sertifikat laboratorium.
+          </p>
 
           {/* Informasi Identitas Produk & Sampel Master */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 bg-gray-50 p-4 rounded-xl border border-gray-200 text-xs">
@@ -117,7 +127,7 @@ export const QCReportModal: React.FC<QCReportModalProps> = ({
               <span className="font-bold text-gray-900 text-sm">{productName}</span>
             </div>
             <div>
-              <span className="text-gray-500 block text-[11px]">Master Fisik Acuan:</span>
+              <span className="text-gray-500 block text-[11px]">Kode Master Acuan:</span>
               <span className="font-bold font-mono text-amber-800 text-sm">{masterCode}</span>
               <span className="text-gray-600 block text-[11px]">{masterName}</span>
             </div>
@@ -136,25 +146,27 @@ export const QCReportModal: React.FC<QCReportModalProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center border border-gray-200 rounded-xl p-4 bg-gray-50/50">
             {/* Swatch Berdampingan */}
             <div className="md:col-span-6 flex items-center justify-around gap-4 bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
-              <div className="text-center flex-1">
-                <div
-                  className="w-16 h-16 rounded-xl border-2 border-gray-400 mx-auto shadow-inner"
-                  style={{ backgroundColor: masterColorRgb }}
-                />
-                <span className="font-bold text-xs text-gray-800 mt-2 block">Master Acuan</span>
-                <span className="text-[10px] text-gray-500 font-mono">Papan Fisik</span>
-              </div>
+              {primaryMeasured ? (
+                <>
+                  <div className="text-center flex-1">
+                    <div className="w-16 h-16 rounded-xl border-2 border-gray-400 mx-auto shadow-inner" style={{ backgroundColor: masterColorRgb }} />
+                    <span className="font-bold text-xs text-gray-800 mt-2 block">Foto Master Acuan</span>
+                    <span className="text-[10px] text-gray-500 font-mono">Sampel piksel</span>
+                  </div>
 
-              <div className="text-center font-bold text-gray-400 text-sm">VS</div>
+                  <div className="text-center font-bold text-gray-400 text-sm">VS</div>
 
-              <div className="text-center flex-1">
-                <div
-                  className="w-16 h-16 rounded-xl border-2 border-gray-400 mx-auto shadow-inner"
-                  style={{ backgroundColor: productColorRgb }}
-                />
-                <span className="font-bold text-xs text-gray-800 mt-2 block">Hasil Produk</span>
-                <span className="text-[10px] text-gray-500 font-mono">Foto Studio</span>
-              </div>
+                  <div className="text-center flex-1">
+                    <div className="w-16 h-16 rounded-xl border-2 border-gray-400 mx-auto shadow-inner" style={{ backgroundColor: productColorRgb }} />
+                    <span className="font-bold text-xs text-gray-800 mt-2 block">Foto Produk</span>
+                    <span className="text-[10px] text-gray-500 font-mono">Sampel piksel</span>
+                  </div>
+                </>
+              ) : (
+                <div className="w-full text-center py-6 text-xs text-gray-500">
+                  Data warna belum tersedia karena kedua foto belum berhasil dibandingkan.
+                </div>
+              )}
             </div>
 
             {/* Kotak Keputusan Utama */}
@@ -187,7 +199,7 @@ export const QCReportModal: React.FC<QCReportModalProps> = ({
           {primaryMeasured && (
             <div>
               <h3 className="text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">
-                1. Data Pengukuran Statistik (Standar CIEDE2000 & LBP)
+                1. Data Perbandingan Foto (CIEDE2000 & tekstur lokal)
               </h3>
               <table className="w-full text-left border border-gray-200 rounded-lg overflow-hidden text-xs">
                 <thead className="bg-gray-100 text-gray-700 font-bold border-b border-gray-200">
@@ -227,10 +239,10 @@ export const QCReportModal: React.FC<QCReportModalProps> = ({
                     </td>
                   </tr>
                   <tr>
-                    <td className="p-2.5 font-medium">Kesesuaian Warna (ΔE₀₀)</td>
-                    <td className="p-2.5 font-mono">0.00</td>
+                    <td className="p-2.5 font-medium">Selisih Warna (ΔE₀₀)</td>
+                    <td className="p-2.5 font-mono">-</td>
                     <td className="p-2.5 font-mono">{primaryMeasured.deltaE00}</td>
-                    <td className="p-2.5 font-mono font-bold">{colorAccuracy}% Akurat</td>
+                    <td className="p-2.5 font-mono font-bold">Nilai terhitung</td>
                     <td className="p-2.5">
                       <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-gray-100 border border-gray-300">
                         {primaryMeasured.deltaE00 <= 2.2 ? 'Sangat Pas (≤ 2.2)' : 'Perbedaan Tampak (> 2.2)'}
@@ -238,17 +250,17 @@ export const QCReportModal: React.FC<QCReportModalProps> = ({
                     </td>
                   </tr>
                   <tr>
-                    <td className="p-2.5 font-medium">Struktur & Arah Serat Kayu</td>
-                    <td className="p-2.5 font-mono">100% Identik</td>
+                    <td className="p-2.5 font-medium">Tekstur & Arah Serat Kayu</td>
+                    <td className="p-2.5 font-mono">-</td>
                     <td className="p-2.5 font-mono">
-                      {primaryFusion ? `${(primaryFusion.textureSimilarityScore * 100).toFixed(0)}%` : '100%'}
+                      {primaryFusion ? `${(primaryFusion.textureSimilarityScore * 100).toFixed(0)}%` : '-'}
                     </td>
                     <td className="p-2.5 font-mono font-bold">
-                      {primaryFusion ? `${primaryFusion.grainAngleDiffDeg}°` : '0°'}
+                      {primaryFusion ? `${primaryFusion.grainAngleDiffDeg}°` : '-'}
                     </td>
                     <td className="p-2.5">
                       <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-gray-100 border border-gray-300">
-                        {primaryFusion?.isGrainMatching !== false ? 'Serat Cocok' : 'Beda Karakter'}
+                        {primaryFusion ? (primaryFusion.isGrainMatching ? 'Kemiripan terhitung' : 'Ada perbedaan terhitung') : 'Belum tersedia'}
                       </span>
                     </td>
                   </tr>
@@ -257,13 +269,13 @@ export const QCReportModal: React.FC<QCReportModalProps> = ({
             </div>
           )}
 
-          {/* Diagnosa AI Serat Kayu & Peta Petak */}
+          {/* Perbandingan Tekstur Lokal & Peta Petak */}
           {primaryFusion?.patchAnomaly && primaryFusion.patchAnomaly.heatmapGrid.length > 0 && (
             <div className="border border-gray-200 rounded-xl p-4 bg-gray-50/70 space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold uppercase tracking-wider text-gray-700 flex items-center gap-1.5">
                   <Layers className="w-4 h-4 text-amber-700" />
-                  2. Diagnosa Kecerdasan Buatan Serat Kayu (AnomalyDINO)
+                  2. Perbandingan Tekstur Lokal per Petak
                 </span>
                 <span className="text-[11px] font-bold px-2.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-300">
                   {!primaryFusion.patchAnomaly.isAnomalous ? 'Lolos Pemeriksaan Petak' : 'Peringatan Anomali'}
@@ -297,14 +309,14 @@ export const QCReportModal: React.FC<QCReportModalProps> = ({
             <div>
               <span className="font-bold block text-gray-800 mb-1">Catatan Tambahan Operator:</span>
               <div className="p-2 border border-gray-200 rounded min-h-[50px] bg-gray-50 italic">
-                {note || 'Semua parameter warna dan pola serat kayu telah diperiksa sesuai prosedur standar operasional studio.'}
+                {note || 'Catatan operator belum diisi.'}
               </div>
             </div>
 
             <div className="flex justify-between gap-4 text-center">
               <div className="flex-1">
                 <span className="block mb-10 text-gray-600">Pemeriksa (Operator Studio)</span>
-                <div className="border-t border-gray-400 pt-1 font-bold">( Bima / Operator QC )</div>
+                <div className="border-t border-gray-400 pt-1 font-bold">( ................................ )</div>
               </div>
               <div className="flex-1">
                 <span className="block mb-10 text-gray-600">Penerima (Mandor / Klien)</span>

@@ -3,8 +3,26 @@
 @tailwind utilities;
 
 @layer base {
+  html {
+    min-width: 0;
+  }
+
   body {
     @apply bg-studio-950 text-studio-100 font-sans;
+    min-width: 0;
+    overflow-x: hidden;
+  }
+
+  :focus-visible {
+    outline: 2px solid #f59e0b;
+    outline-offset: 2px;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
   }
 }
 

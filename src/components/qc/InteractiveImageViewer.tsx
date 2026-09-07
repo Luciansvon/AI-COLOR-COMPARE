@@ -562,7 +562,7 @@ export const InteractiveImageViewer: React.FC<InteractiveImageViewerProps> = ({
         ref={containerRef}
         onWheel={handleWheel}
         onMouseDown={handleMouseDownOnContainer}
-        className={`relative aspect-[4/3] bg-studio-950 flex items-center justify-center overflow-hidden select-none ${
+        className={`relative aspect-[16/10] max-h-[350px] min-h-[240px] bg-studio-950 flex items-center justify-center overflow-hidden select-none ${
           toolMode === 'draw'
             ? 'cursor-crosshair'
             : toolMode === 'pan' || (zoomLevel > 1.0 && dragState?.type === 'pan')

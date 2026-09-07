@@ -1,6 +1,7 @@
 import React from 'react';
 import { QCRecord } from '../../types';
 import { History, X, CheckCircle2, XCircle, FileText, Download } from 'lucide-react';
+import { useModalAccessibility } from '../common/useModalAccessibility';
 
 interface QCHistoryViewProps {
   isOpen: boolean;
@@ -14,6 +15,8 @@ export const QCHistoryView: React.FC<QCHistoryViewProps> = ({
   onClose,
   records,
 }) => {
+  const dialogRef = useModalAccessibility(isOpen, onClose);
+
   if (!isOpen) return null;
 
   const exportHistoryJson = () => {
@@ -27,8 +30,15 @@ export const QCHistoryView: React.FC<QCHistoryViewProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-studio-900 border border-studio-800 rounded-xl max-w-3xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden">
+    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="qc-history-title"
+        tabIndex={-1}
+        className="bg-studio-900 border border-studio-800 rounded-xl max-w-3xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden"
+      >
         {/* Header */}
         <div className="p-4 border-b border-studio-800 flex items-center justify-between bg-studio-900">
           <div className="flex items-center space-x-2">
@@ -36,7 +46,7 @@ export const QCHistoryView: React.FC<QCHistoryViewProps> = ({
               <History className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-sm font-semibold text-white">Riwayat Keputusan QC Studio</h3>
+              <h3 id="qc-history-title" className="text-sm font-semibold text-white">Riwayat Keputusan QC Studio</h3>
               <p className="text-xs text-studio-400">
                 Catatan terverifikasi untuk kalibrasi dan audit konsistensi warna
               </p>
@@ -53,7 +63,7 @@ export const QCHistoryView: React.FC<QCHistoryViewProps> = ({
                 Ekspor JSON
               </button>
             )}
-            <button onClick={onClose} className="p-1 rounded text-studio-400 hover:text-white">
+            <button type="button" onClick={onClose} aria-label="Tutup riwayat QC" className="p-1 rounded text-studio-400 hover:text-white">
               <X className="w-4 h-4" />
             </button>
           </div>

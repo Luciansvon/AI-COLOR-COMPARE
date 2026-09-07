@@ -32,11 +32,6 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
     ? `rgb(${measured.productRgb.r}, ${measured.productRgb.g}, ${measured.productRgb.b})`
     : '#52341e';
 
-  // Kalkulasi persentase akurasi warna dari deltaE00 (skala 0 - 100%)
-  const colorAccuracyPercent = measured
-    ? Math.max(0, Math.min(100, Math.round(100 - measured.deltaE00 * 7.5)))
-    : 100;
-
   return (
     <div
       onClick={onSelect}
@@ -320,18 +315,30 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
 
                 {/* Angka Skor Utama */}
                 <div className="bg-studio-900/80 p-2.5 rounded-lg border border-studio-800/60 my-2 text-center">
-                  <span className="text-[10px] text-studio-500 block">Tingkat Kecocokan</span>
+                  <span className="text-[10px] text-studio-500 block">Evaluasi Toleransi Warna</span>
                   <div className="flex items-center justify-center gap-1.5">
-                    <span className="text-base font-bold font-mono text-emerald-400">{colorAccuracyPercent}%</span>
-                    <span className="text-xs text-studio-400 font-medium">Akurat</span>
+                    <span
+                      className={`text-base font-bold font-mono ${
+                        measured.deltaE00 <= 2.2
+                          ? 'text-emerald-400'
+                          : measured.deltaE00 <= 4.5
+                          ? 'text-amber-400'
+                          : 'text-rose-400'
+                      }`}
+                    >
+                      ΔE {measured.deltaE00.toFixed(2)}
+                    </span>
+                    <span className="text-xs text-studio-400 font-medium">
+                      {measured.deltaE00 <= 2.2 ? 'Sangat Pas' : measured.deltaE00 <= 4.5 ? 'Beda Tipis' : 'Beda Jelas'}
+                    </span>
                   </div>
                 </div>
               </div>
 
               {/* Selisih & Keterangan */}
               <div className="pt-2 border-t border-studio-800/60 flex items-center justify-between text-[11px]">
-                <span className="text-studio-400">Skor Selisih (ΔE₀₀):</span>
-                <span className="font-bold font-mono text-studio-200">{measured.deltaE00}</span>
+                <span className="text-studio-400">Toleransi Acuan:</span>
+                <span className="font-bold font-mono text-studio-200">≤ 2.2 ΔE₀₀</span>
               </div>
             </div>
 
@@ -387,7 +394,7 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
               </div>
               <div>
                 <span className="text-xs font-bold text-white tracking-wide">
-                  Peta Petak Serat Kayu AI (AnomalyDINO)
+                  Peta Petak Serat Kayu (Analisis Tekstur Petak / LBP)
                 </span>
                 <span className="text-[10px] text-studio-400 block font-normal">
                   Pemeriksaan pori & serat kayu per petak mikro terhadap master fisik

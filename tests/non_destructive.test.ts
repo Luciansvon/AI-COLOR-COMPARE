@@ -1,4 +1,6 @@
-// Test Validasi Non-Destructive (AC-001 & REQ-RAW-003)
+// Uji fixture non-destructive untuk kontrak test: berkas sumber tetap sama
+// ketika keluaran ditulis ke berkas lain. Jaminan implementasi JPEG native
+// diuji di src-tauri/src/raw_engine/export.rs.
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
@@ -11,7 +13,7 @@ function sha256File(filePath: string): string {
 }
 
 console.log('================================================================');
-console.log('🛡️ UJI VALIDASI KEASLIAN BERKAS SUMBER (NON-DESTRUCTIVE)');
+console.log('🛡️ UJI FIXTURE NON-DESTRUCTIVE (BERKAS SUMBER VS TARGET TERPISAH)');
 console.log('================================================================\n');
 
 const testDir = path.join(process.cwd(), 'test_assets');
@@ -35,8 +37,8 @@ const hashAfter = sha256File(rawSamplePath);
 console.log(`📌 Hash SHA-256 Setelah Ekspor Selesai: ${hashAfter}`);
 
 if (hashBefore === hashAfter) {
-  console.log('\n✅ [PASS] AC-001: Berkas asli kamera terbukti 100% TIDAK TERSENTUH (Byte-for-byte identik).');
-  console.log(`✅ [PASS] AC-012: Berkas hasil ekspor tersimpan di berkas terpisah: ${path.basename(exportedJpegPath)}`);
+  console.log('\n✅ [PASS] Fixture sumber tetap byte-for-byte identik selama simulasi penulisan target terpisah.');
+  console.log(`ℹ️  Target simulasi tersimpan terpisah: ${path.basename(exportedJpegPath)}.`);
 } else {
   console.error('\n❌ [FAIL] Berkas sumber mengalami modifikasi!');
   process.exitCode = 1;
@@ -46,15 +48,13 @@ if (hashBefore === hashAfter) {
 const realCanonPath = path.join(process.cwd(), 'tests', 'fixtures', 'raw', 'sample_canon_eos1d.CR2');
 if (fs.existsSync(realCanonPath)) {
   const canonHash = sha256File(realCanonPath);
-  console.log(`📌 Hash SHA-256 Canon CR2 Nyata: ${canonHash}`);
-  console.log('✅ [PASS] Berkas Canon CR2 kamera asli terverifikasi utuh.');
+  console.log(`ℹ️  Hash baseline fixture Canon CR2 (tidak menjalankan ekspor native): ${canonHash}`);
 }
 
 const realNikonPath = path.join(process.cwd(), 'tests', 'fixtures', 'raw', 'sample_nikon_1j1.NEF');
 if (fs.existsSync(realNikonPath)) {
   const nikonHash = sha256File(realNikonPath);
-  console.log(`📌 Hash SHA-256 Nikon NEF Nyata: ${nikonHash}`);
-  console.log('✅ [PASS] Berkas Nikon NEF kamera asli terverifikasi utuh.');
+  console.log(`ℹ️  Hash baseline fixture Nikon NEF (tidak menjalankan ekspor native): ${nikonHash}`);
 }
 
 // Bersihkan berkas uji
