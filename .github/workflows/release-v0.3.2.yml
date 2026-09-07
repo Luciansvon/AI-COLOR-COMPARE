@@ -1,0 +1,72 @@
+name: Release Studio Color QC v0.3.2
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  release-windows:
+    if: contains(github.event.head_commit.message, '[release v0.3.2]')
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Siapkan Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Siapkan Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Pasang dependensi frontend
+        run: npm ci
+
+      - name: Uji frontend
+        run: npm test
+
+      - name: Uji Rust core
+        run: cargo test --manifest-path src-tauri/Cargo.toml
+
+      - name: Build installer NSIS v0.3.2 dengan WebView2 offline
+        run: npx --yes @tauri-apps/cli@2.11.4 build --bundles nsis
+
+      - name: Publikasikan GitHub Release v0.3.2
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $installer = Get-ChildItem -Path "src-tauri/target/release/bundle/nsis" -Filter "*.exe" -File | Select-Object -First 1
+          if (-not $installer) {
+            throw "Installer NSIS v0.3.2 tidak ditemukan."
+          }
+
+          $asset = Join-Path $env:RUNNER_TEMP "Studio-Color-QC-v0.3.2-Windows-x64-Setup.exe"
+          Copy-Item $installer.FullName $asset -Force
+
+          $notes = Join-Path $env:RUNNER_TEMP "release-notes-v0.3.2.md"
+          @"
+          ## Studio Color QC v0.3.2 — Windows White Screen Hotfix
+
+          Hotfix ini memperbaiki kasus aplikasi membuka jendela putih/kosong pada PC Windows studio.
+
+          ### Perbaikan utama
+          - Menggunakan installer NSIS resmi, bukan executable mentah.
+          - Microsoft WebView2 Offline Installer disertakan agar instalasi tetap bisa dilakukan tanpa internet.
+          - Startup UI tidak lagi bergantung pada Google Fonts.
+          - Ditambahkan fallback startup dan Error Boundary agar kegagalan UI menampilkan pesan, bukan layar putih.
+          - Frontend test, Rust test, dan build installer Windows diverifikasi di GitHub Actions.
+
+          ### Instalasi
+          Unduh `Studio-Color-QC-v0.3.2-Windows-x64-Setup.exe`, jalankan installer, lalu buka Studio Color QC dari Windows.
+
+          File RAW/foto asli tetap diproses secara non-destruktif dan keputusan PASS/FAIL tetap milik operator.
+          "@ | Set-Content -Path $notes -Encoding UTF8
+
+          gh release create "v0.3.2" "$asset" --repo "$env:GITHUB_REPOSITORY" --target "$env:GITHUB_SHA" --title "Studio Color QC v0.3.2 - Windows White Screen Hotfix" --notes-file "$notes"
