@@ -155,13 +155,15 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
               <span className="text-amber-400 font-bold shrink-0">💡 Solusi:</span>
               <span className="leading-relaxed">
                 {unifiedFusion?.studioAction || (
-                  estimated?.primaryCause.toLowerCase().includes('lampu') || estimated?.primaryCause.toLowerCase().includes('white balance')
-                    ? 'Cukup sesuaikan pencahayaan studio atau setelan suhu warna di kamera. Bahan finishing kayu sebenarnya sudah cocok.'
+                  estimated?.primaryCause.toLowerCase().includes('belum pasti')
+                    ? 'Jangan putuskan material atau menggeser White Balance dulu. Stabilkan lampu, eksposur, sudut/refleksi, dan profil kamera; foto ulang terhadap master lalu bandingkan lagi.'
+                    : estimated?.primaryCause.toLowerCase().includes('lampu') || estimated?.primaryCause.toLowerCase().includes('white balance')
+                    ? 'Periksa pencahayaan studio dan White Balance, lalu foto ulang terhadap master. Jangan menyimpulkan material cocok atau berbeda sebelum hasil capture stabil.'
                     : estimated?.primaryCause.toLowerCase().includes('material')
-                    ? 'Periksa fisik sampel produk ke tim finishing kayu karena arah perbedaan warnanya bukan dari pencahayaan kamera.'
+                    ? 'Periksa fisik sampel produk bersama tim finishing dan cocokkan lagi dengan master sebelum operator mengambil keputusan.'
                     : estimated?.primaryCause.toLowerCase().includes('eksposur')
-                    ? 'Atur intensitas lampu studio atau kecepatan rana (shutter speed) agar tingkat terangnya sama dengan master panel.'
-                    : 'Pencahayaan dan warna sudah seimbang. Hasil foto aman untuk lolos QC studio.'
+                    ? 'Atur intensitas lampu studio atau kecepatan rana agar tingkat terangnya mendekati master, lalu foto ulang.'
+                    : 'Gunakan seluruh bukti pengukuran bersama pemeriksaan visual. Keputusan PASS/FAIL tetap milik operator.'
                 )}
               </span>
             </div>
@@ -337,7 +339,7 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
 
               {/* Selisih & Keterangan */}
               <div className="pt-2 border-t border-studio-800/60 flex items-center justify-between text-[11px]">
-                <span className="text-studio-400">Toleransi Acuan:</span>
+                <span className="text-studio-400">Ambang Internal:</span>
                 <span className="font-bold font-mono text-studio-200">≤ 2.2 ΔE₀₀</span>
               </div>
             </div>
@@ -351,12 +353,14 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
                   </span>
                   <span
                     className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${
-                      unifiedFusion?.isGrainMatching !== false
+                      !unifiedFusion
+                        ? 'bg-studio-800 text-studio-300 border-studio-700'
+                        : unifiedFusion.isGrainMatching
                         ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
                         : 'bg-rose-500/15 text-rose-300 border-rose-500/30'
                     }`}
                   >
-                    {unifiedFusion?.isGrainMatching !== false ? 'Serat Cocok' : 'Beda Serat'}
+                    {!unifiedFusion ? 'Belum Diukur' : unifiedFusion.isGrainMatching ? 'Serat Cocok' : 'Beda Serat'}
                   </span>
                 </div>
 
@@ -364,10 +368,10 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
                 <div className="bg-studio-900/80 p-2.5 rounded-lg border border-studio-800/60 my-2 text-center">
                   <span className="text-[10px] text-studio-500 block">Kemiripan Pori & Urat</span>
                   <div className="flex items-center justify-center gap-1.5">
-                    <span className="text-base font-bold font-mono text-emerald-400">
-                      {unifiedFusion ? `${(unifiedFusion.textureSimilarityScore * 100).toFixed(0)}%` : '100%'}
+                    <span className={`text-base font-bold font-mono ${unifiedFusion ? 'text-emerald-400' : 'text-studio-400'}`}>
+                      {unifiedFusion ? `${(unifiedFusion.textureSimilarityScore * 100).toFixed(0)}%` : '—'}
                     </span>
-                    <span className="text-xs text-studio-400 font-medium">Identik</span>
+                    <span className="text-xs text-studio-400 font-medium">{unifiedFusion ? 'Terukur' : 'Belum diukur'}</span>
                   </div>
                 </div>
               </div>
@@ -376,7 +380,7 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
               <div className="pt-2 border-t border-studio-800/60 flex items-center justify-between text-[11px]">
                 <span className="text-studio-400">Arah Alur Kayu:</span>
                 <span className="font-bold font-mono text-studio-200">
-                  {unifiedFusion ? `${unifiedFusion.grainAngleDiffDeg}° (${unifiedFusion.grainAngleDiffDeg <= 20 ? 'Searah' : 'Miring'})` : 'Searah'}
+                  {unifiedFusion ? `${unifiedFusion.grainAngleDiffDeg}° (${unifiedFusion.grainAngleDiffDeg <= 20 ? 'Searah' : 'Miring'})` : 'Belum diukur'}
                 </span>
               </div>
             </div>
@@ -485,7 +489,7 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
       {measured?.clippingWarning?.highlightClipped && (
         <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2 mb-3">
           <ShieldAlert className="w-4 h-4 text-rose-400 shrink-0" />
-          <span>Perhatian: Ada pantulan lampu terlalu silau di area ini (disarankan memakai diffuser lampu).</span>
+          <span>Perhatian: Ada pantulan lampu terlalu silau atau kanal warna mentok di area ini. Perbaiki pencahayaan sebelum menilai warna.</span>
         </div>
       )}
 
