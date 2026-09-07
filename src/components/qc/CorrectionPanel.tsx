@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { CorrectionParams, CorrectionConflict } from '../../types';
 import { Sliders, AlertOctagon, Sparkles, RotateCcw, Download, Eye, EyeOff } from 'lucide-react';
 
@@ -33,21 +33,29 @@ export const CorrectionPanel: React.FC<CorrectionPanelProps> = ({
   onTogglePreview,
   onExportJpeg,
 }) => {
+  const lastAutoAppliedRecommendation = useRef('');
+
   const updateField = (field: keyof CorrectionParams, value: number) => {
     onChangeParams({ ...params, [field]: value });
   };
 
   const hasAnyCorrection = hasCorrection(params);
   const hasRecommendedCorrection = hasCorrection(recommended);
+  const recommendedKey = JSON.stringify(recommended);
 
-  // v0.3.4 mengisi slider dengan rekomendasi setelah perbandingan.
-  // v0.3.5 mereset slider ke nol sehingga Preview Koreksi dan ekspor tampak seperti foto asli.
-  // Pulihkan perilaku yang berguna tanpa memaksa preview menyala otomatis.
+  // Pulihkan perilaku v0.3.4: saran baru mengisi slider sekali setelah perbandingan.
+  // Jika operator menekan Reset atau mengubah slider manual, nilainya tidak dipaksa balik lagi.
   useEffect(() => {
-    if (!conflict.hasConflict && !hasAnyCorrection && hasRecommendedCorrection) {
+    if (conflict.hasConflict || !hasRecommendedCorrection) {
+      lastAutoAppliedRecommendation.current = '';
+      return;
+    }
+
+    if (!hasAnyCorrection && lastAutoAppliedRecommendation.current !== recommendedKey) {
+      lastAutoAppliedRecommendation.current = recommendedKey;
       onChangeParams({ ...recommended });
     }
-  }, [recommended, conflict.hasConflict, hasAnyCorrection, hasRecommendedCorrection, onChangeParams]);
+  }, [recommendedKey, recommended, conflict.hasConflict, hasAnyCorrection, hasRecommendedCorrection, onChangeParams]);
 
   return (
     <div className="bg-studio-900 border border-studio-800 rounded-xl p-5 shadow-lg space-y-4">
