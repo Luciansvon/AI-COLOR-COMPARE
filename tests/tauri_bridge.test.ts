@@ -58,6 +58,22 @@ async function main() {
   assert.equal(await successfulBridge.persistQCRecordToStorage(qcRecord), true);
   assert.deepEqual(calledCommands, ['add_master_cmd', 'save_qc_record_cmd']);
 
+  let storedPayload: unknown;
+  const roundTripBridge = createTauriStorageBridge({
+    isTauri: () => true,
+    invoke: async <T>(command: string, args?: Record<string, unknown>) => {
+      if (command === 'save_qc_record_cmd') { storedPayload = args?.record; return undefined as T; }
+      return [storedPayload] as T;
+    },
+  });
+  const correction = { temperatureK: 100, tint: -5, exposureEV: 0.1, saturation: 2, brightness: 0, contrast: 0 };
+  await roundTripBridge.persistQCRecordToStorage({ ...qcRecord, metadata: {
+    ...qcRecord.metadata, measurementSource: 'corrected', measurementCorrection: correction,
+  } });
+  const restored = (await roundTripBridge.getQCRecordsFromStorage())[0];
+  assert.equal(restored.metadata.measurementSource, 'corrected');
+  assert.deepEqual(restored.metadata.measurementCorrection, correction);
+
   const emptyDbBridge = createTauriStorageBridge({
     isTauri: () => true,
     invoke: async <T>(command: string) => {

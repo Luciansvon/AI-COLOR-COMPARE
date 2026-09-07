@@ -1,4 +1,5 @@
 import React from 'react';
+import { brightnessComparison } from '../../utils/measurementDisplay';
 import { ROIItem, MeasuredEvidence, UnifiedMaterialReport, CorrectionParams, ImageMetadata } from '../../types';
 import { X, Printer, CheckCircle2, XCircle, Layers, FileText } from 'lucide-react';
 import { useModalAccessibility } from '../common/useModalAccessibility';
@@ -17,6 +18,7 @@ interface QCReportModalProps {
   failReasons?: string[];
   note?: string;
   correctionParams?: CorrectionParams;
+  isCorrectedMeasurement?: boolean;
 }
 
 export const QCReportModal: React.FC<QCReportModalProps> = ({
@@ -33,6 +35,7 @@ export const QCReportModal: React.FC<QCReportModalProps> = ({
   failReasons,
   note,
   correctionParams,
+  isCorrectedMeasurement = false,
 }) => {
   const dialogRef = useModalAccessibility(isOpen, onClose);
 
@@ -51,9 +54,10 @@ export const QCReportModal: React.FC<QCReportModalProps> = ({
     minute: '2-digit',
   });
 
-  const primaryRoi = rois[0];
+  const primaryRoi = rois.find((roi) => roi.role === 'master_backed');
   const primaryMeasured = primaryRoi ? measuredMap[primaryRoi.id] : undefined;
   const primaryFusion = primaryRoi ? fusionMap[primaryRoi.id] : undefined;
+  const brightness = primaryMeasured ? brightnessComparison(primaryMeasured) : undefined;
 
   const masterColorRgb = primaryMeasured?.masterRgb
     ? `rgb(${primaryMeasured.masterRgb.r}, ${primaryMeasured.masterRgb.g}, ${primaryMeasured.masterRgb.b})`
@@ -199,7 +203,7 @@ export const QCReportModal: React.FC<QCReportModalProps> = ({
           {primaryMeasured && (
             <div>
               <h3 className="text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">
-                1. Data Perbandingan Foto (CIEDE2000 & tekstur lokal)
+                1. Data Perbandingan {isCorrectedMeasurement ? 'Pratinjau Terkoreksi' : 'Foto Asli'} (CIEDE2000 & tekstur lokal)
               </h3>
               <table className="w-full text-left border border-gray-200 rounded-lg overflow-hidden text-xs">
                 <thead className="bg-gray-100 text-gray-700 font-bold border-b border-gray-200">
@@ -208,29 +212,29 @@ export const QCReportModal: React.FC<QCReportModalProps> = ({
                     <th className="p-2.5">Master Acuan</th>
                     <th className="p-2.5">Produk Foto</th>
                     <th className="p-2.5">Selisih</th>
-                    <th className="p-2.5">Status & Toleransi</th>
+                    <th className="p-2.5">Status (Ambang Internal)</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 text-gray-800">
                   <tr>
-                    <td className="p-2.5 font-medium">Kecerahan Cahaya (L*)</td>
-                    <td className="p-2.5 font-mono">{primaryMeasured.masterBrightness}%</td>
-                    <td className="p-2.5 font-mono">{primaryMeasured.productBrightness}%</td>
+                    <td className="p-2.5 font-medium">Kecerahan (Skala 0–100)</td>
+                    <td className="p-2.5 font-mono">{primaryMeasured.masterBrightness}</td>
+                    <td className="p-2.5 font-mono">{primaryMeasured.productBrightness}</td>
                     <td className="p-2.5 font-mono font-bold">
-                      {primaryMeasured.brightnessDiffPercent > 0 ? `+${primaryMeasured.brightnessDiffPercent}%` : `${primaryMeasured.brightnessDiffPercent}%`}
+                      {brightness?.text}
                     </td>
                     <td className="p-2.5">
                       <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-gray-100 border border-gray-300">
-                        {Math.abs(primaryMeasured.brightnessDiffPercent) <= 5 ? 'Normal (Toleransi)' : primaryMeasured.brightnessDiffPercent > 5 ? 'Lebih Terang' : 'Lebih Gelap'}
+                        {brightness?.label}
                       </span>
                     </td>
                   </tr>
                   <tr>
-                    <td className="p-2.5 font-medium">Kepekatan Rona (Saturasi)</td>
-                    <td className="p-2.5 font-mono">{primaryMeasured.masterSaturation ?? 'Standar'}%</td>
-                    <td className="p-2.5 font-mono">{primaryMeasured.productSaturation ?? 'Studio'}%</td>
+                    <td className="p-2.5 font-medium">Kepekatan Rona (C*)</td>
+                    <td className="p-2.5 font-mono">{primaryMeasured.masterSaturation ?? 'Belum diukur'}</td>
+                    <td className="p-2.5 font-mono">{primaryMeasured.productSaturation ?? 'Belum diukur'}</td>
                     <td className="p-2.5 font-mono font-bold">
-                      {primaryMeasured.saturationDiffPercent > 0 ? `+${primaryMeasured.saturationDiffPercent}%` : `${primaryMeasured.saturationDiffPercent}%`}
+                      {primaryMeasured.saturationDiffPercent > 0 ? `+${primaryMeasured.saturationDiffPercent}%` : `${primaryMeasured.saturationDiffPercent}%`} relatif master
                     </td>
                     <td className="p-2.5">
                       <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-gray-100 border border-gray-300">
@@ -294,10 +298,11 @@ export const QCReportModal: React.FC<QCReportModalProps> = ({
           {correctionParams && (
             <div className="border border-gray-200 rounded-xl p-4 bg-gray-50/70 text-xs">
               <span className="font-bold uppercase tracking-wider text-gray-700 block mb-1">
-                3. Saran Penyesuaian Lampu / Kamera Studio
+                3. Parameter Simulasi Foto (Bukan Setelan Kamera)
               </span>
               <div className="grid grid-cols-3 gap-2 font-mono text-gray-800 mt-2">
-                <div>Suhu Lampu: {correctionParams.temperatureK > 0 ? `+${correctionParams.temperatureK} K` : `${correctionParams.temperatureK} K`}</div>
+                <div>Suhu simulasi: {correctionParams.temperatureK > 0 ? `+${correctionParams.temperatureK} K` : `${correctionParams.temperatureK} K`}</div>
+                <div>Hijau–Magenta: {correctionParams.tint}</div>
                 <div>Eksposur: {correctionParams.exposureEV > 0 ? `+${correctionParams.exposureEV} EV` : `${correctionParams.exposureEV} EV`}</div>
                 <div>Saturasi: {correctionParams.saturation > 0 ? `+${correctionParams.saturation}%` : `${correctionParams.saturation}%`}</div>
               </div>

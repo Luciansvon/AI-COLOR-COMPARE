@@ -184,9 +184,8 @@ export function evaluateMaterialFusion(
 
   const grainDiff = calculateGrainAngleDiff(masterGrain.dominantAngle, prodGrain.dominantAngle);
   const isGrainMatching = textureSim >= 0.82 && (!masterGrain.isDirectional || grainDiff <= 35);
-  const isColorMatching = colorMeasured.deltaE00 <= 2.5;
+  const isColorMatching = colorMeasured.deltaE00 <= 2.2;
   const rgbBalance = analyzeRgbBalance(colorMeasured);
-  const rgbExplanation = rgbBalance.available ? ` ${rgbBalance.summary}` : '';
 
   // Analisis Patch Anomaly AnomalyDINO / PatchCore
   let patchResult;
@@ -195,16 +194,34 @@ export function evaluateMaterialFusion(
     patchResult = detectPatchAnomalies(prodGray, productWidth, productHeight, bank, 16, 16);
   }
 
+  const textureEvidence = {
+    textureSimilarityScore: Number(textureSim.toFixed(2)),
+    grainAngleDiffDeg: Math.round(grainDiff),
+    isGrainMatching,
+    patchAnomaly: patchResult,
+  };
+  if (colorMeasured.clippingWarning?.highlightClipped || colorMeasured.clippingWarning?.shadowClipped) {
+    return {
+      ...textureEvidence,
+      diagnosisType: 'CaptureUncertain',
+      title: 'Perbaiki Foto Sebelum Menilai',
+      primaryCause: 'Informasi Warna Terpotong',
+      humanExplanation: 'Area pada foto master atau produk terlalu silau/gelap. Kemiripan angka belum cukup untuk menilai warna dan bahan.',
+      studioAction: 'Perbaiki eksposur, lampu, atau pantulan; foto ulang master dan produk sebelum mengubah White Balance.',
+      confidenceLevel: 'Rendah',
+    };
+  }
+
   if (isColorMatching && isGrainMatching) {
     return {
       diagnosisType: 'Conforming',
-      title: 'Sangat Cocok (Lolos Sempurna)',
-      primaryCause: 'Kesesuaian Material Terpenuhi',
-      humanExplanation: `Warna, gelap-terang, dan karakter serat kayu sangat sesuai dengan master panel fisik.${rgbExplanation}`,
+      title: 'Warna dan Serat Mendekati Master',
+      primaryCause: 'Kemiripan Foto Terukur',
+      humanExplanation: 'Warna dan tekstur foto mendekati master menurut ambang internal aplikasi. Periksa juga permukaan fisik dan toleransi proyek.',
       studioAction:
         rgbBalance.available && rgbBalance.bias !== 'balanced'
-          ? `Hasil masih dalam toleransi. Untuk menyamakan capture lebih rapat: ${rgbBalance.cameraAction}`
-          : 'Aman untuk dipotret dan lolos QC studio. Tidak memerlukan penyesuaian apapun.',
+          ? `Untuk mencoba menyamakan arah warna: ${rgbBalance.cameraAction} Keputusan PASS/FAIL tetap milik operator.`
+          : 'Pertahankan pengambilan foto yang konsisten. Keputusan PASS/FAIL tetap milik operator.',
       confidenceLevel: 'Tinggi',
       textureSimilarityScore: Number(textureSim.toFixed(2)),
       grainAngleDiffDeg: Math.round(grainDiff),
@@ -221,13 +238,13 @@ export function evaluateMaterialFusion(
 
     return {
       diagnosisType: 'IlluminationArtifact',
-      title: 'Penyimpangan Cahaya Kamera (Bahan Sesuai)',
+      title: 'Warna Bergeser, Tekstur Mendekati Master',
       primaryCause: cause,
-      humanExplanation: `Struktur pori-pori dan serat kayu terbukti identik dengan master fisik (kemiripan ${(textureSim * 100).toFixed(0)}%), namun warna bergeser akibat kondisi pemotretan.${rgbExplanation}`,
+      humanExplanation: `Skor kemiripan tekstur foto ${(textureSim * 100).toFixed(0)}%, tetapi warna bergeser. Skor ini belum membuktikan bahan sama atau memastikan penyebabnya adalah lampu.`,
       studioAction: rgbBalance.available
-        ? `${rgbBalance.cameraAction} Bahan finishing kayu tidak perlu diubah.`
-        : 'Cukup atur ulang lampu studio atau geser parameter warna kamera. Bahan finishing kayu tidak perlu diubah.',
-      confidenceLevel: 'Tinggi',
+        ? `Periksa lampu dan referensi netral terlebih dahulu. ${rgbBalance.cameraAction}`
+        : 'Periksa lampu, eksposur, dan White Balance kamera; foto ulang terhadap master sebelum menyimpulkan bahan berbeda.',
+      confidenceLevel: 'Sedang',
       textureSimilarityScore: Number(textureSim.toFixed(2)),
       grainAngleDiffDeg: Math.round(grainDiff),
       isGrainMatching: true,
@@ -236,11 +253,11 @@ export function evaluateMaterialFusion(
   } else if (!isColorMatching && !isGrainMatching) {
     return {
       diagnosisType: 'MaterialMismatch',
-      title: 'Ketidaksesuaian Bahan / Finishing',
-      primaryCause: 'Bahan Kayu / Formula Finishing Berbeda',
-      humanExplanation: `Perbedaan visual bukan berasal dari lampu kamera. Pola permukaan, tekstur, dan warna fisik berbeda dari sampel master.${rgbExplanation}`,
-      studioAction: 'Jangan kompensasi perbedaan ini dengan setting kamera terlebih dahulu. Laporkan ke bagian produksi atau finishing kayu untuk pengecekan lot bahan.',
-      confidenceLevel: 'Tinggi',
+      title: 'Warna dan Tekstur Perlu Diperiksa',
+      primaryCause: 'Penyebab Belum Pasti',
+      humanExplanation: 'Warna dan pola permukaan foto berbeda dari master. Sudut, pencahayaan, skala area, dan bahan perlu diperiksa sebelum menyimpulkan penyebabnya.',
+      studioAction: 'Samakan kondisi foto dan area pembanding terlebih dahulu. Jika perbedaan tetap terlihat, periksa bahan bersama bagian finishing.',
+      confidenceLevel: 'Sedang',
       textureSimilarityScore: Number(textureSim.toFixed(2)),
       grainAngleDiffDeg: Math.round(grainDiff),
       isGrainMatching: false,
@@ -251,7 +268,7 @@ export function evaluateMaterialFusion(
       diagnosisType: 'SpeciesOrGrainMismatch',
       title: 'Perbedaan Jenis / Arah Urat Kayu',
       primaryCause: 'Karakter Serat Kayu Berbeda',
-      humanExplanation: `Warna dasar tampak mendekati master, tetapi struktur pori dan urat kayu menunjukkan karakter kayu yang berbeda.${rgbExplanation}`,
+      humanExplanation: 'Warna foto mendekati master, tetapi pola tekstur berbeda. Periksa arah serat, skala area, dan sudut pengambilan foto sebelum menentukan jenis bahan.',
       studioAction: 'Periksa apakah grade atau arah potongan kayu sudah sesuai dengan standar katalog furnitur. Jangan ubah White Balance hanya untuk menutupi perbedaan serat.',
       confidenceLevel: 'Sedang',
       textureSimilarityScore: Number(textureSim.toFixed(2)),

@@ -32,6 +32,8 @@ target
 # Test assets / cache
 test_assets
 test-artifacts
+.playwright-cli/
+output/playwright/
 release-artifacts
 dist_release
 artifacts

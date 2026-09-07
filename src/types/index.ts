@@ -63,7 +63,7 @@ export type TextureEvidence = {
 };
 
 export type UnifiedMaterialReport = {
-  diagnosisType: 'Conforming' | 'IlluminationArtifact' | 'MaterialMismatch' | 'SpeciesOrGrainMismatch';
+  diagnosisType: 'Conforming' | 'IlluminationArtifact' | 'MaterialMismatch' | 'SpeciesOrGrainMismatch' | 'CaptureUncertain';
   title: string;
   primaryCause: string;
   humanExplanation: string;
@@ -127,6 +127,8 @@ export type ImageMetadata = {
   focalLength?: string;
   whiteBalance?: string;
   capturedAt?: string;
+  measurementSource?: 'original' | 'corrected';
+  measurementCorrection?: CorrectionParams;
 };
 
 export type QCRecord = {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   MasterIdentity,
   ROIItem,
@@ -19,7 +19,7 @@ import { DecisionModal } from './DecisionModal';
 import { QCReportModal } from './QCReportModal';
 import { convertImageToJpegDataUrl, extractPixelsFromImageROI, renderCorrectedPreview } from '../../utils/canvasColorExtractor';
 import { compareStats } from '../../color_science/metrics';
-import { calculateRecommendedCorrection } from '../../color_science/correction';
+import { calculateRecommendedCorrection, ZERO_CORRECTION } from '../../color_science/correction';
 import { evaluateMaterialFusion } from '../../color_science/texture';
 import { generateWoodTextureImage } from '../../utils/imageGenerator';
 import { Check, X, Upload, Sparkles, AlertTriangle, ShieldCheck, Camera, CheckCircle2, FolderOpen, Search, RefreshCw, ArrowRight, Printer } from 'lucide-react';
@@ -156,8 +156,28 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
   const [isReportModalOpen, setIsReportModalOpen] = useState<boolean>(false);
   const [productFailReasons, setProductFailReasons] = useState<string[]>([]);
   const [productFailNote, setProductFailNote] = useState<string>('');
+  const comparisonGeneration = useRef(0);
+  const [measurementCorrection, setMeasurementCorrection] = useState<CorrectionParams | null>(null);
+  const [comparisonError, setComparisonError] = useState('');
+  const uploadReaders = useRef<{ master?: FileReader; product?: FileReader }>({});
+  const evidenceStale = measurementCorrection !== null &&
+    (!isPreviewingCorrection || JSON.stringify(measurementCorrection) !== JSON.stringify(correctionParams));
+
+  const clearDecisions = () => {
+    setRoiDecisions({});
+    setProductDecision(null);
+    setProductFailReasons([]);
+    setProductFailNote('');
+    setIsReportModalOpen(false);
+    setFailModalOpen(false);
+  };
 
   const resetAnalysis = (nextStatus: 'idle' | 'ready') => {
+    comparisonGeneration.current += 1;
+    setIsRecomparing(false);
+    setRecompareSuccess(false);
+    setMeasurementCorrection(null);
+    setComparisonError('');
     setRoiMeasured({});
     setRoiEstimated({});
     setRoiFusion({});
@@ -187,6 +207,20 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
     setIsPreviewingCorrection(false);
     setComparisonStatus(nextStatus);
   };
+
+  useEffect(() => () => {
+    comparisonGeneration.current += 1;
+    uploadReaders.current.master?.abort();
+    uploadReaders.current.product?.abort();
+  }, []);
+
+  useEffect(() => {
+    if (appMode === 'upload') setComparisonStatus(masterImageSrc && productImageSrc ? 'ready' : 'idle');
+  }, [masterImageSrc, productImageSrc, appMode]);
+
+  useEffect(() => {
+    if (evidenceStale) clearDecisions();
+  }, [evidenceStale]);
 
   // 1. Muat Gambar hanya jika pengguna memilih Mode Demo Simulasi
   useEffect(() => {
@@ -235,24 +269,27 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
   };
 
   const handleMasterUpload = (file: File) => {
-    resetAnalysis(productImageSrc ? 'ready' : 'idle');
+    uploadReaders.current.master?.abort();
+    resetAnalysis('idle');
+    setMasterImageSrc('');
     const reader = new FileReader();
+    uploadReaders.current.master = reader;
     reader.onload = (event) => {
       const dataUrl = event.target?.result as string;
       setMasterImageSrc(dataUrl);
       setMasterFileName(file.name);
-      if (productImageSrc) {
-        setComparisonStatus('ready');
-      } else {
-        setComparisonStatus('idle');
-      }
     };
+    reader.onerror = () => setComparisonError('Foto master gagal dibaca. Pilih ulang berkas.');
     reader.readAsDataURL(file);
   };
 
   const handleProductUpload = (file: File) => {
-    resetAnalysis(masterImageSrc ? 'ready' : 'idle');
+    uploadReaders.current.product?.abort();
+    resetAnalysis('idle');
+    setProductImageSrc('');
+    setPreviewImageSrc('');
     const reader = new FileReader();
+    uploadReaders.current.product = reader;
     reader.onload = (event) => {
       const dataUrl = event.target?.result as string;
       setProductImageSrc(dataUrl);
@@ -265,12 +302,8 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
         lens: 'Tidak tersedia',
         whiteBalance: 'Tidak tersedia',
       });
-      if (masterImageSrc) {
-        setComparisonStatus('ready');
-      } else {
-        setComparisonStatus('idle');
-      }
     };
+    reader.onerror = () => setComparisonError('Foto produk gagal dibaca. Pilih ulang berkas.');
     reader.readAsDataURL(file);
   };
 
@@ -280,7 +313,8 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
     overrideRois?: ROIItem[],
     silentUpdate: boolean = false,
     overrideMasterBox?: ROIBox,
-    overrideScenario?: string
+    overrideScenario?: string,
+    appliedCorrection?: CorrectionParams
   ) => {
     const mSrc = overrideMaster || masterImageSrc;
     const pSrc = overrideProduct || productImageSrc;
@@ -288,7 +322,12 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
     const activeMasterBox = overrideMasterBox || masterRoiBox;
     const activeScenario = overrideScenario ?? selectedScenario;
 
-    if (!mSrc || !pSrc) return;
+    if (!mSrc || !pSrc) return false;
+    const generation = ++comparisonGeneration.current;
+    clearDecisions();
+    setComparisonError('');
+    setIsRecomparing(true);
+    setRecompareSuccess(false);
 
     // HANYA ubah status menjadi 'analyzing' jika bukan silent update dan belum 'completed'.
     // Ini mencegah area hasil di bawah menghilang dan menyebabkan layar naik-turun.
@@ -350,6 +389,8 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
         }
       }
 
+      if (generation !== comparisonGeneration.current) return false;
+      setMeasurementCorrection(appliedCorrection ?? null);
       setRoiMeasured(measuredMap);
       setRoiEstimated(estimatedMap);
       setRoiFusion(fusionMap);
@@ -357,27 +398,26 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
       // Hitung rekomendasi koreksi global dan deteksi konflik
       const pairs = activeRois.map((r) => ({ roi: r, measured: measuredMap[r.id] }));
       const corrResult = calculateRecommendedCorrection(pairs);
-      setRecommendedCorrection(corrResult.recommended);
       setCorrectionConflict(corrResult.conflict);
 
-      // Set default slider ke rekomendasi jika tidak konflik
-      if (!corrResult.conflict.hasConflict) {
-        setCorrectionParams(corrResult.recommended);
-      } else {
-        setCorrectionParams({
-          temperatureK: 0,
-          tint: 0,
-          exposureEV: 0,
-          brightness: 0,
-          contrast: 0,
-          saturation: 0,
-        });
+      // Hasil pratinjau tidak boleh mengganti slider dengan koreksi sisa,
+      // karena gambar yang tampil kemudian tidak lagi sama dengan gambar yang diukur.
+      if (!appliedCorrection) {
+        setRecommendedCorrection(corrResult.recommended);
+        setCorrectionParams({ ...ZERO_CORRECTION });
+        setIsPreviewingCorrection(false);
       }
 
       setComparisonStatus('completed');
+      return true;
     } catch (err) {
+      if (generation !== comparisonGeneration.current) return false;
       console.error('Gagal melakukan ekstraksi dan perbandingan piksel:', err);
-      setComparisonStatus('ready');
+      resetAnalysis('ready');
+      setComparisonError('Foto belum berhasil dibandingkan. Periksa berkas dan pilih ulang area, lalu coba lagi.');
+      return false;
+    } finally {
+      if (generation === comparisonGeneration.current) setIsRecomparing(false);
     }
   };
 
@@ -389,15 +429,14 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
 
     try {
       // Jika pengguna sedang menyalakan preview koreksi (slider aktif), gunakan foto hasil koreksi
-      const targetProductImg = isPreviewingCorrection && previewImageSrc ? previewImageSrc : productImageSrc;
-
-      // Jeda proses realistis (~400ms) agar mata pengguna melihat animasi berputar dan status memproses
-      await new Promise((resolve) => setTimeout(resolve, 400));
-
-      await executeComparison(masterImageSrc, targetProductImg, rois, true);
-
-      setIsRecomparing(false);
-      setRecompareSuccess(true);
+      const generation = comparisonGeneration.current;
+      const appliedCorrection = isPreviewingCorrection ? { ...correctionParams } : undefined;
+      const targetProductImg = appliedCorrection
+        ? await renderCorrectedPreview(productImageSrc, appliedCorrection)
+        : productImageSrc;
+      if (generation !== comparisonGeneration.current) return;
+      const succeeded = await executeComparison(masterImageSrc, targetProductImg, rois, true, undefined, undefined, appliedCorrection);
+      setRecompareSuccess(succeeded);
 
       // Kembalikan tanda sukses ke teks tombol normal setelah 1.5 detik
       setTimeout(() => {
@@ -410,6 +449,9 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
   };
 
   const loadScenario = (scenarioKey: string) => {
+    uploadReaders.current.master?.abort();
+    uploadReaders.current.product?.abort();
+    resetAnalysis('ready');
     setSelectedScenario(scenarioKey);
     setIsPreviewingCorrection(false);
     setAppMode('demo');
@@ -489,13 +531,22 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
       return;
     }
 
+    let cancelled = false;
     renderCorrectedPreview(productImageSrc, correctionParams).then((res) => {
-      setPreviewImageSrc(res);
+      if (!cancelled) setPreviewImageSrc(res);
+    }).catch((error) => {
+      if (!cancelled) {
+        console.error('Gagal membuat pratinjau:', error);
+        setIsPreviewingCorrection(false);
+        setComparisonError('Pratinjau gagal dibuat. Foto asli tetap tersedia.');
+      }
     });
+    return () => { cancelled = true; };
   }, [correctionParams, isPreviewingCorrection, productImageSrc]);
 
   // Handler Keputusan Operator Per-ROI
   const handleRoiDecision = (roiId: string, decision: 'PASS' | 'FAIL') => {
+    if (isRecomparing || evidenceStale || comparisonStatus !== 'completed') return;
     if (decision === 'PASS') {
       setRoiDecisions((prev) => ({
         ...prev,
@@ -514,9 +565,11 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
 
   // Handler Keputusan Produk Akhir
   const handleProductDecision = async (decision: 'PASS' | 'FAIL') => {
+    if (isRecomparing || evidenceStale || comparisonStatus !== 'completed') return;
+    const generation = comparisonGeneration.current;
     if (decision === 'PASS') {
       const saved = await saveFinalRecord('PASS', []);
-      if (saved) setProductDecision('PASS');
+      if (saved && generation === comparisonGeneration.current) setProductDecision('PASS');
     } else {
       setFailTarget({
         type: 'product',
@@ -528,6 +581,8 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
 
   // Konfirmasi Alasan FAIL dari Modal
   const handleConfirmFail = async (reasons: string[], note: string) => {
+    if (isRecomparing || evidenceStale || comparisonStatus !== 'completed') return;
+    const generation = comparisonGeneration.current;
     if (failTarget.type === 'roi' && failTarget.id) {
       setRoiDecisions((prev) => ({
         ...prev,
@@ -542,7 +597,7 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
       setProductFailReasons(reasons);
       setProductFailNote(note);
       const saved = await saveFinalRecord('FAIL', reasons, note);
-      if (saved) setProductDecision('FAIL');
+      if (saved && generation === comparisonGeneration.current) setProductDecision('FAIL');
     }
   };
 
@@ -555,7 +610,11 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
       productName,
       masterCode: currentMaster.code,
       sourceImageName: imageMetadata.fileName,
-      metadata: imageMetadata,
+      metadata: {
+        ...imageMetadata,
+        measurementSource: measurementCorrection ? 'corrected' : 'original',
+        measurementCorrection: measurementCorrection ?? undefined,
+      },
       rois: rois.map((r) => ({
         roi: r,
         measured: roiMeasured[r.id],
@@ -578,10 +637,10 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
 
   // Ekspor JPEG sRGB Non-Destruktif (REQ-EXPORT-001 s/d REQ-EXPORT-005)
   const handleExportJpeg = async () => {
-    const source = previewImageSrc || productImageSrc;
-    if (!source) return;
+    if (!productImageSrc) return;
 
     try {
+      const source = await renderCorrectedPreview(productImageSrc, correctionParams);
       const jpegDataUrl = await convertImageToJpegDataUrl(source, 0.95);
       const baseName = (imageMetadata.fileName || 'studio_qc_export').replace(/\.[^/.]+$/, '');
       const link = document.createElement('a');
@@ -1064,7 +1123,7 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
             </button>
           )}
 
-          {comparisonStatus === 'completed' && (
+          {comparisonStatus === 'completed' && !evidenceStale && !isRecomparing && (
             <button
               id="btn-open-qc-report"
               onClick={() => setIsReportModalOpen(true)}
@@ -1077,6 +1136,8 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
         </div>
       </div>
 
+      {comparisonError && <p role="alert" className="text-sm text-rose-300">{comparisonError}</p>}
+      {evidenceStale && <p role="status" className="text-sm text-amber-300">Pratinjau berubah. Tekan Bandingkan Ulang sebelum mengambil keputusan atau mencetak laporan.</p>}
       {/* Jika status SUDAH selesai dibandingkan, tampilkan hasil perbandingan */}
       {comparisonStatus === 'completed' && (
         <>
@@ -1084,7 +1145,7 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
           <div className="bg-emerald-950/40 border border-emerald-500/30 rounded-xl px-4 py-3 flex flex-wrap items-center justify-between gap-3 shadow-md">
             <div className="flex items-center space-x-2 text-emerald-300 text-xs font-semibold">
               <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-              <span>Foto Master dan Foto Produk berhasil dimuat! Hasil analisis perbandingan warna dan serat kayu tersaji di bawah:</span>
+              <span>{measurementCorrection ? 'Hasil pengukuran pratinjau terkoreksi.' : 'Hasil pengukuran foto asli.'} Kecerahan memakai skala 0–100; selisih ditulis dalam poin.</span>
             </div>
             <span className="text-[11px] font-mono text-emerald-400/80 bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
               QC Aktif
@@ -1127,6 +1188,7 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
                   measured={roiMeasured[roi.id]}
                   estimated={roiEstimated[roi.id]}
                   unifiedFusion={roiFusion[roi.id]}
+                  hasCorrectionConflict={correctionConflict.hasConflict}
                   isSingleArea={rois.length === 1}
                   isSelected={selectedRoiId === roi.id}
                   onSelect={() => setSelectedRoiId(roi.id)}
@@ -1141,7 +1203,11 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
             recommended={recommendedCorrection}
             conflict={correctionConflict}
             onChangeParams={setCorrectionParams}
-            onApplyRecommended={() => setCorrectionParams(recommendedCorrection)}
+            onApplyRecommended={() => {
+              if (correctionConflict.hasConflict) return;
+              setCorrectionParams(recommendedCorrection);
+              setIsPreviewingCorrection(true);
+            }}
             onReset={() =>
               setCorrectionParams({
                 temperatureK: 0,
@@ -1185,6 +1251,7 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
             <div className="flex items-center space-x-3 shrink-0">
               <button
                 onClick={() => handleProductDecision('PASS')}
+                disabled={isRecomparing || evidenceStale}
                 className={`px-6 py-3 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all shadow-lg ${
                   productDecision === 'PASS'
                     ? 'bg-emerald-500 text-black shadow-emerald-500/30 scale-105'
@@ -1197,6 +1264,7 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
 
               <button
                 onClick={() => handleProductDecision('FAIL')}
+                disabled={isRecomparing || evidenceStale}
                 className={`px-6 py-3 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all shadow-lg ${
                   productDecision === 'FAIL'
                     ? 'bg-rose-600 text-white shadow-rose-600/30 scale-105'
@@ -1234,6 +1302,7 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
         failReasons={productDecision === 'FAIL' ? productFailReasons : undefined}
         note={productDecision === 'FAIL' ? productFailNote : undefined}
         correctionParams={correctionParams}
+        isCorrectedMeasurement={measurementCorrection !== null}
       />
     </div>
   );

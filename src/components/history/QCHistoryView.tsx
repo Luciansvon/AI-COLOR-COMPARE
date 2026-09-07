@@ -94,6 +94,7 @@ export const QCHistoryView: React.FC<QCHistoryViewProps> = ({
                       </div>
                       <div className="text-[11px] text-studio-500 mt-0.5 font-mono">
                         {new Date(rec.timestamp).toLocaleString('id-ID')} | File: {rec.sourceImageName}
+                        {' | '}{rec.metadata.measurementSource === 'corrected' ? 'Pratinjau terkoreksi' : rec.metadata.measurementSource === 'original' ? 'Foto asli' : 'Basis pengukuran belum tercatat'}
                       </div>
                     </div>
 

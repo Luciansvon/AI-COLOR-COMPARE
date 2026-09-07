@@ -1,13 +1,13 @@
 {
   "name": "ai-color-compare",
   "private": true,
-  "version": "0.3.1",
+  "version": "0.3.5",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "test": "tsx tests/run_tests.ts && tsx tests/non_destructive.test.ts && tsx tests/tauri_bridge.test.ts && tsx tests/measurement_guardrails.test.ts && tsx tests/evidence_copy_guardrails.test.ts",
+    "test": "tsx tests/run_tests.ts && tsx tests/non_destructive.test.ts && tsx tests/tauri_bridge.test.ts && tsx tests/measurement_guardrails.test.ts && tsx tests/evidence_copy_guardrails.test.ts && tsx tests/rgb_analysis.test.ts && tsx tests/operator_audit.test.tsx",
     "test:browser": "node tests/test_browser.mjs",
     "desktop:dev": "tauri dev",
     "desktop:build": "tauri build"

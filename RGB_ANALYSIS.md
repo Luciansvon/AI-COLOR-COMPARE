@@ -1,5 +1,13 @@
 # Analisis RGB Operator — Canon EOS 80D
 
+## Pembaruan v0.3.5
+
+Panel operator kini menampilkan kanal R/G/B tersendiri, arah dominan termasuk kekuningan, dan status belum pasti jika bukti RGB/Lab tidak konsisten. Perubahan proporsi memakai **poin persen** (misalnya 40% menjadi 45% adalah +5 poin persen). Data non-finite atau di luar 0–255 ditolak.
+
+Petunjuk kamera berlaku jika memakai Canon EOS 80D; aplikasi belum mengenali model kamera otomatis. Menu Pemotretan 2 → WB Shift/Bkt. menggunakan dua sumbu B/A dan G/M. Lihat [penjelasan Canon](https://snapshot.asia.canon/indo/id/article/eos-80d-shooting-techniques-street-photographs). Satu langkah adalah percobaan awal yang harus diperiksa lewat foto ulang.
+
+Kecerahan kartu dan laporan menggunakan skala 0–100 serta selisih poin: 20 → 30 = +10 poin. Status Cahaya Pas memakai ambang internal ±3 poin; bukan toleransi universal. Clipping master/produk dan konflik antararea menahan saran koreksi global.
+
 ## Tujuan
 
 Fitur ini menjawab pertanyaan operator studio secara langsung:

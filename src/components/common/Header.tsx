@@ -1,4 +1,5 @@
 import React from 'react';
+import appConfig from '../../../src-tauri/tauri.conf.json';
 import { ShieldCheck, History, Sliders } from 'lucide-react';
 import { MasterIdentity } from '../../types';
 
@@ -31,7 +32,7 @@ export const Header: React.FC<HeaderProps> = ({
               <span className="hidden sm:inline">Studio Color Consistency &amp; Material QC</span>
             </h1>
             <span className="text-[10px] sm:text-[11px] font-mono px-1.5 sm:px-2 py-0.5 rounded bg-studio-800 text-studio-300 border border-studio-700 shrink-0">
-              v0.3.1
+              v{appConfig.version}
             </span>
           </div>
           <p className="hidden sm:block text-xs text-studio-400 truncate">
