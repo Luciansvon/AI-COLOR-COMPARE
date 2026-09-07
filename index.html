@@ -4,13 +4,20 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/png" href="/app-icon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark" />
     <title>Studio Color Consistency & Material QC System</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   </head>
   <body class="bg-studio-950 text-studio-100 antialiased selection:bg-accent-amber/20 selection:text-accent-amber">
-    <div id="root"></div>
+    <div id="root">
+      <div style="min-height:100vh;background:#0b0d11;color:#edf1f7;font-family:Segoe UI,system-ui,sans-serif;display:flex;align-items:center;justify-content:center;padding:24px;box-sizing:border-box">
+        <div style="max-width:560px;width:100%;background:#12151c;border:1px solid #2b3242;border-radius:16px;padding:24px;box-sizing:border-box">
+          <div style="font-size:18px;font-weight:700;margin-bottom:8px">Studio Color QC sedang memulai</div>
+          <div style="font-size:13px;line-height:1.6;color:#a3aec4">
+            Jika pesan ini tidak hilang, antarmuka aplikasi gagal dimuat. Tutup aplikasi lalu buka kembali. Jika tetap terjadi, gunakan installer Windows terbaru yang menyertakan Microsoft WebView2.
+          </div>
+        </div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
