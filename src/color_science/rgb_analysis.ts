@@ -97,7 +97,8 @@ export function analyzeRgbBalance(measured: MeasuredEvidence): RgbBalanceAnalysi
         ['red', delta.r],
         ['green', delta.g],
         ['blue', delta.b],
-      ].sort((a, b) => b[1] - a[1]);
+      ];
+      ranked.sort((a, b) => b[1] - a[1]);
 
       if (ranked[0][1] > 1.2) bias = ranked[0][0];
     }
