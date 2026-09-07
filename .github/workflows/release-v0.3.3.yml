@@ -1,0 +1,125 @@
+name: Release Studio Color QC v0.3.3
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  release-windows:
+    if: contains(github.event.head_commit.message, '[release v0.3.3]')
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Siapkan Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Siapkan Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Pasang dependensi frontend
+        run: npm ci
+
+      - name: Uji frontend
+        run: npm test
+
+      - name: Uji analisis RGB operator
+        run: npx tsx tests/rgb_analysis.test.ts
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Uji Rust core
+        run: cargo test --manifest-path src-tauri/Cargo.toml
+
+      - name: Build installer NSIS v0.3.3 dengan WebView2 offline
+        run: npx --yes @tauri-apps/cli@2.11.4 build --bundles nsis
+
+      - name: Uji upgrade-in-place dari v0.3.2 ke v0.3.3
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $newInstaller = Get-ChildItem -Path "src-tauri/target/release/bundle/nsis" -Filter "*.exe" -File | Select-Object -First 1
+          if (-not $newInstaller) {
+            throw "Installer NSIS v0.3.3 tidak ditemukan."
+          }
+
+          $oldDir = Join-Path $env:RUNNER_TEMP "old-release"
+          New-Item -ItemType Directory -Force -Path $oldDir | Out-Null
+          gh release download "v0.3.2" --repo "$env:GITHUB_REPOSITORY" --pattern "Studio-Color-QC-v0.3.2-Windows-x64-Setup.exe" --dir "$oldDir"
+          $oldInstaller = Get-ChildItem -Path $oldDir -Filter "*.exe" -File | Select-Object -First 1
+          if (-not $oldInstaller) {
+            throw "Installer pembanding v0.3.2 tidak berhasil diunduh."
+          }
+
+          Start-Process -FilePath $oldInstaller.FullName -ArgumentList "/S" -Wait
+          Start-Sleep -Seconds 2
+          Start-Process -FilePath $newInstaller.FullName -ArgumentList "/S" -Wait
+          Start-Sleep -Seconds 2
+
+          $uninstallPaths = @(
+            "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*",
+            "HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*",
+            "HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*"
+          )
+
+          $entries = @(Get-ItemProperty $uninstallPaths -ErrorAction SilentlyContinue | Where-Object {
+            $_.DisplayName -eq "Studio Color QC"
+          })
+
+          if ($entries.Count -ne 1) {
+            $found = ($entries | ForEach-Object { "$($_.DisplayName) $($_.DisplayVersion)" }) -join "; "
+            throw "Upgrade-in-place gagal: seharusnya tepat 1 instalasi Studio Color QC, ditemukan $($entries.Count). $found"
+          }
+
+          if ($entries[0].DisplayVersion -ne "0.3.3") {
+            throw "Upgrade-in-place gagal: versi registry masih $($entries[0].DisplayVersion), seharusnya 0.3.3."
+          }
+
+          Write-Host "PASS: v0.3.2 berhasil ditimpa menjadi v0.3.3 tanpa membuat aplikasi kedua."
+
+      - name: Publikasikan GitHub Release v0.3.3
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $installer = Get-ChildItem -Path "src-tauri/target/release/bundle/nsis" -Filter "*.exe" -File | Select-Object -First 1
+          if (-not $installer) {
+            throw "Installer NSIS v0.3.3 tidak ditemukan."
+          }
+
+          $asset = Join-Path $env:RUNNER_TEMP "Studio-Color-QC-v0.3.3-Windows-x64-Setup.exe"
+          Copy-Item $installer.FullName $asset -Force
+
+          $notes = Join-Path $env:RUNNER_TEMP "release-notes-v0.3.3.md"
+          @"
+          ## Studio Color QC v0.3.3 — Analisis RGB Operator + Upgrade In-Place
+
+          ### Analisis RGB baru
+          - Menampilkan arah warna dengan bahasa operator: Seimbang, Kemerahan, Kehijauan, atau Kebiruan.
+          - Membandingkan proporsi RGB produk terhadap physical master, bukan memaksa R/G/B bernilai sama.
+          - Arah RGB divalidasi dengan Δa* dan Δb* agar lebih tahan terhadap karakter alami warna kayu.
+          - Panduan khusus Canon EOS 80D memakai arah White Balance Correction B/A dan G/M.
+          - Jumlah langkah kamera tidak ditebak: mulai 1 langkah, foto ulang, lalu bandingkan kembali.
+          - Jika ROI clipping/silau/terlalu gelap, aplikasi meminta exposure diperbaiki sebelum White Balance.
+
+          ### Pembaruan Windows
+          - Installer tetap memakai product `Studio Color QC` dan identifier `com.studio.colorqc`.
+          - Mode instalasi dikunci ke current-user agar konsisten dengan v0.3.2.
+          - Installer v0.3.3 diuji meng-upgrade v0.3.2 menjadi satu instalasi yang sama, bukan membuat aplikasi kedua.
+          - Downgrade ke versi lama diblokir.
+
+          ### Keamanan QC
+          RGB hanya menjadi evidence tambahan. PASS/FAIL tetap keputusan operator dan file foto asli tetap non-destruktif.
+          "@ | Set-Content -Path $notes -Encoding UTF8
+
+          gh release create "v0.3.3" "$asset" --repo "$env:GITHUB_REPOSITORY" --target "$env:GITHUB_SHA" --title "Studio Color QC v0.3.3 - RGB Operator & Upgrade In-Place" --notes-file "$notes"
