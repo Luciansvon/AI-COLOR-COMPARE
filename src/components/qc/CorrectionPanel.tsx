@@ -46,9 +46,9 @@ export const CorrectionPanel: React.FC<CorrectionPanelProps> = ({
             <Sliders className="w-4 h-4" />
           </div>
           <div>
-            <h3 className="text-sm font-semibold text-white">Rekomendasi Koreksi Warna</h3>
+            <h3 className="text-sm font-semibold text-white">Simulasi Koreksi Foto</h3>
             <p className="text-xs text-studio-400">
-              Penyesuaian non-destruktif untuk mendekatkan foto ke master panel
+              Estimasi pratinjau aplikasi. Angka slider bukan setelan Canon EOS 80D.
             </p>
           </div>
         </div>
@@ -83,7 +83,7 @@ export const CorrectionPanel: React.FC<CorrectionPanelProps> = ({
         <div className="p-3.5 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-200 text-xs space-y-1.5">
           <div className="flex items-center gap-2 font-bold text-rose-400">
             <AlertOctagon className="w-4 h-4" />
-            <span>KONFLIK KOREKSI TERDETEKSI (Auto-Correct Dinonaktifkan)</span>
+            <span>SARAN OTOMATIS DITAHAN</span>
           </div>
           <p className="text-rose-300 leading-relaxed">{conflict.details.reason}</p>
           <div className="text-[11px] text-rose-400/80 mt-1 font-mono">
@@ -98,9 +98,10 @@ export const CorrectionPanel: React.FC<CorrectionPanelProps> = ({
           <div className="text-xs text-studio-300">
             <span className="font-semibold text-amber-300">Saran Sistem: </span>
             {recommended.temperatureK !== 0 && `Suhu ${recommended.temperatureK > 0 ? `+${recommended.temperatureK}` : recommended.temperatureK} K, `}
+            {recommended.tint !== 0 && `Hijau–Magenta ${recommended.tint > 0 ? '+' : ''}${recommended.tint}, `}
             {recommended.exposureEV !== 0 && `Eksposur ${recommended.exposureEV > 0 ? `+${recommended.exposureEV}` : recommended.exposureEV} EV, `}
             {recommended.saturation !== 0 && `Saturasi ${recommended.saturation > 0 ? `+${recommended.saturation}` : recommended.saturation}%`}
-            {recommended.temperatureK === 0 && recommended.exposureEV === 0 && recommended.saturation === 0 && 'Warna sudah sangat dekat dengan master, tidak perlu penyesuaian besar.'}
+            {recommended.temperatureK === 0 && recommended.tint === 0 && recommended.exposureEV === 0 && recommended.saturation === 0 && 'Tidak ada penyesuaian pratinjau yang disarankan.'}
           </div>
           <button
             onClick={onApplyRecommended}
@@ -113,7 +114,7 @@ export const CorrectionPanel: React.FC<CorrectionPanelProps> = ({
       )}
 
       {/* Kontrol Slider Manual */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-1">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 pt-1">
         {/* Suhu Warna (Temperature) */}
         <div className="space-y-1.5">
           <div className="flex justify-between text-xs">
@@ -123,10 +124,11 @@ export const CorrectionPanel: React.FC<CorrectionPanelProps> = ({
             </span>
           </div>
           <input
+            aria-label="Suhu warna simulasi"
             type="range"
             min="-800"
             max="800"
-            step="25"
+            step="1"
             value={params.temperatureK}
             onChange={(e) => updateField('temperatureK', Number(e.target.value))}
             className="w-full h-1.5 bg-studio-800 rounded-lg appearance-none cursor-pointer accent-amber-400"
@@ -134,6 +136,19 @@ export const CorrectionPanel: React.FC<CorrectionPanelProps> = ({
           <div className="flex justify-between text-[10px] text-studio-500 font-mono">
             <span>Lebih Dingin/Biru</span>
             <span>Lebih Hangat/Kuning</span>
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <div className="flex justify-between text-xs">
+            <span className="text-studio-300 font-medium">Hijau–Magenta</span>
+            <span className="font-mono text-studio-200">{params.tint > 0 ? '+' : ''}{params.tint}</span>
+          </div>
+          <input aria-label="Hijau–Magenta simulasi" type="range" min="-100" max="100" step="1"
+            value={params.tint} onChange={(e) => updateField('tint', Number(e.target.value))}
+            className="w-full h-1.5 bg-studio-800 rounded-lg appearance-none cursor-pointer accent-amber-400" />
+          <div className="flex justify-between text-[10px] text-studio-500">
+            <span>Lebih Hijau</span><span>Lebih Magenta</span>
           </div>
         </div>
 
@@ -146,10 +161,11 @@ export const CorrectionPanel: React.FC<CorrectionPanelProps> = ({
             </span>
           </div>
           <input
+            aria-label="Eksposur simulasi"
             type="range"
             min="-1.5"
             max="1.5"
-            step="0.05"
+            step="0.01"
             value={params.exposureEV}
             onChange={(e) => updateField('exposureEV', Number(e.target.value))}
             className="w-full h-1.5 bg-studio-800 rounded-lg appearance-none cursor-pointer accent-amber-400"
@@ -169,10 +185,11 @@ export const CorrectionPanel: React.FC<CorrectionPanelProps> = ({
             </span>
           </div>
           <input
+            aria-label="Saturasi simulasi"
             type="range"
             min="-50"
             max="50"
-            step="2"
+            step="1"
             value={params.saturation}
             onChange={(e) => updateField('saturation', Number(e.target.value))}
             className="w-full h-1.5 bg-studio-800 rounded-lg appearance-none cursor-pointer accent-amber-400"

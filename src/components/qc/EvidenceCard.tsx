@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { brightnessComparison } from '../../utils/measurementDisplay';
+import { RgbOperatorPanel } from './RgbOperatorPanel';
 import { ROIItem, MeasuredEvidence, EstimatedRecommendation, UnifiedMaterialReport } from '../../types';
 import { CheckCircle2, AlertTriangle, XCircle, Info, ChevronDown, ChevronUp, ShieldAlert, Sparkles, Compass, ArrowRight, BarChart3, Layers, Scan } from 'lucide-react';
 
@@ -10,6 +12,7 @@ interface EvidenceCardProps {
   isSelected?: boolean;
   onSelect?: () => void;
   isSingleArea?: boolean;
+  hasCorrectionConflict?: boolean;
 }
 
 export const EvidenceCard: React.FC<EvidenceCardProps> = ({
@@ -20,9 +23,11 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
   isSelected,
   onSelect,
   isSingleArea = false,
+  hasCorrectionConflict = false,
 }) => {
   const [showTechnicalDetails, setShowTechnicalDetails] = useState(false);
   const isNoMaster = roi.role === 'guardrail_only';
+  const brightness = measured ? brightnessComparison(measured) : undefined;
 
   // Format warna swatch Master & Produk
   const masterColorRgb = measured?.masterRgb
@@ -94,7 +99,7 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
       </div>
 
       {/* 2. Baris Komparasi Sampel Visual & Solusi Studio */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-5">
+      {!isNoMaster && <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-5">
         {/* Kolom Swatch Warna Berdampingan */}
         {measured && (
           <div className="lg:col-span-4 bg-studio-950/90 p-4 rounded-xl border border-studio-800/80 flex flex-col justify-between">
@@ -112,7 +117,7 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
                   title={`Master: ${masterColorRgb}`}
                 />
                 <span className="text-[11px] font-bold text-studio-300 mt-2 block">Master Kayu</span>
-                <span className="text-[10px] font-mono text-studio-500">L* {measured.masterBrightness}%</span>
+                <span className="text-[10px] font-mono text-studio-500">Kecerahan {measured.masterBrightness} / 100</span>
               </div>
 
               {/* Panah Pembanding */}
@@ -129,7 +134,7 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
                   title={`Produk: ${productColorRgb}`}
                 />
                 <span className="text-[11px] font-bold text-studio-300 mt-2 block">Produk Studio</span>
-                <span className="text-[10px] font-mono text-studio-500">L* {measured.productBrightness}%</span>
+                <span className="text-[10px] font-mono text-studio-500">Kecerahan {measured.productBrightness} / 100</span>
               </div>
             </div>
           </div>
@@ -154,7 +159,9 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
             <div className="pt-2.5 border-t border-studio-800/80 flex items-start gap-2 text-xs text-studio-300">
               <span className="text-amber-400 font-bold shrink-0">💡 Solusi:</span>
               <span className="leading-relaxed">
-                {unifiedFusion?.studioAction || (
+                {hasCorrectionConflict
+                  ? 'Saran koreksi global ditahan. Periksa peringatan pada panel simulasi dan kondisi tiap area sebelum mengubah kamera.'
+                  : unifiedFusion?.studioAction || (
                   estimated?.primaryCause.toLowerCase().includes('belum pasti')
                     ? 'Jangan putuskan material atau menggeser White Balance dulu. Stabilkan lampu, eksposur, sudut/refleksi, dan profil kamera; foto ulang terhadap master lalu bandingkan lagi.'
                     : estimated?.primaryCause.toLowerCase().includes('lampu') || estimated?.primaryCause.toLowerCase().includes('white balance')
@@ -169,10 +176,11 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
             </div>
           </div>
         </div>
-      </div>
+      </div>}
 
       {/* 3. PAPAN STATISTIK KOMPARASI (THE CORE STATS DASHBOARD) */}
-      {measured && (
+      {measured && !isNoMaster && <RgbOperatorPanel measured={measured} fusion={unifiedFusion} hasConflict={hasCorrectionConflict} />}
+      {measured && !isNoMaster && (
         <div className="mb-5">
           <div className="text-[11px] font-bold uppercase tracking-wider text-studio-400 mb-3 flex items-center justify-between">
             <span className="flex items-center gap-1.5">
@@ -192,16 +200,16 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
                   </span>
                   <span
                     className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${
-                      Math.abs(measured.brightnessDiffPercent) <= 3
+                      Math.abs((brightness?.difference ?? 0)) <= 3
                         ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
-                        : measured.brightnessDiffPercent > 3
+                        : (brightness?.difference ?? 0) > 3
                         ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
                         : 'bg-sky-500/15 text-sky-300 border-sky-500/30'
                     }`}
                   >
-                    {Math.abs(measured.brightnessDiffPercent) <= 3
+                    {Math.abs((brightness?.difference ?? 0)) <= 3
                       ? 'Cahaya Pas'
-                      : measured.brightnessDiffPercent > 3
+                      : (brightness?.difference ?? 0) > 3
                       ? 'Lebih Terang'
                       : 'Lebih Gelap'}
                   </span>
@@ -211,11 +219,11 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
                 <div className="grid grid-cols-2 gap-2 bg-studio-900/80 p-2.5 rounded-lg border border-studio-800/60 my-2 text-center">
                   <div>
                     <span className="text-[10px] text-studio-500 block">Master Fisik</span>
-                    <span className="text-sm font-bold font-mono text-studio-200">{measured.masterBrightness}%</span>
+                    <span className="text-sm font-bold font-mono text-studio-200">{measured.masterBrightness} / 100</span>
                   </div>
                   <div className="border-l border-studio-800 pl-2">
                     <span className="text-[10px] text-studio-500 block">Produk Foto</span>
-                    <span className="text-sm font-bold font-mono text-studio-200">{measured.productBrightness}%</span>
+                    <span className="text-sm font-bold font-mono text-studio-200">{measured.productBrightness} / 100</span>
                   </div>
                 </div>
               </div>
@@ -225,14 +233,14 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
                 <span className="text-studio-400">Selisih Cahaya:</span>
                 <span
                   className={`font-bold font-mono ${
-                    Math.abs(measured.brightnessDiffPercent) <= 3
+                    Math.abs((brightness?.difference ?? 0)) <= 3
                       ? 'text-emerald-400'
-                      : measured.brightnessDiffPercent > 3
+                      : (brightness?.difference ?? 0) > 3
                       ? 'text-amber-400'
                       : 'text-sky-400'
                   }`}
                 >
-                  {measured.brightnessDiffPercent > 0 ? `+${measured.brightnessDiffPercent}%` : `${measured.brightnessDiffPercent}%`}
+                  {brightness?.text}
                 </span>
               </div>
             </div>
@@ -266,13 +274,13 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
                   <div>
                     <span className="text-[10px] text-studio-500 block">Master Fisik</span>
                     <span className="text-sm font-bold font-mono text-studio-200">
-                      {measured.masterSaturation !== undefined ? `${measured.masterSaturation}%` : 'Standar'}
+                      {measured.masterSaturation !== undefined ? `${measured.masterSaturation} C*` : 'Belum diukur'}
                     </span>
                   </div>
                   <div className="border-l border-studio-800 pl-2">
                     <span className="text-[10px] text-studio-500 block">Produk Foto</span>
                     <span className="text-sm font-bold font-mono text-studio-200">
-                      {measured.productSaturation !== undefined ? `${measured.productSaturation}%` : 'Studio'}
+                      {measured.productSaturation !== undefined ? `${measured.productSaturation} C*` : 'Belum diukur'}
                     </span>
                   </div>
                 </div>
@@ -280,7 +288,7 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
 
               {/* Selisih & Keterangan */}
               <div className="pt-2 border-t border-studio-800/60 flex items-center justify-between text-[11px]">
-                <span className="text-studio-400">Selisih Kepekatan:</span>
+                <span className="text-studio-400">Selisih Relatif Master:</span>
                 <span
                   className={`font-bold font-mono ${
                     Math.abs(measured.saturationDiffPercent) <= 4
@@ -486,6 +494,12 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
       )}
 
       {/* Peringatan Silau / Gelap Ekstrem */}
+      {isNoMaster && measured && (
+        <p className="text-xs text-studio-300 mb-3">Kecerahan produk: {measured.productBrightness} / 100. Area ini tidak memiliki master; tidak diberi skor kecocokan warna atau serat.</p>
+      )}
+      {measured?.clippingWarning?.shadowClipped && (
+        <p className="text-xs text-rose-300 mb-3">Area foto master atau produk terlalu gelap. Perbaiki pengambilan foto sebelum menilai warna.</p>
+      )}
       {measured?.clippingWarning?.highlightClipped && (
         <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2 mb-3">
           <ShieldAlert className="w-4 h-4 text-rose-400 shrink-0" />
@@ -494,7 +508,7 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
       )}
 
       {/* 4. Progressive Disclosure: Detail Teknis Laboratorium (Bisa Dibuka-Tutup) */}
-      {measured && (
+      {measured && !isNoMaster && (
         <div>
           <button
             type="button"

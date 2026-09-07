@@ -10,6 +10,8 @@
 
 ## 🎨 Analisis RGB untuk Operator Studio
 
+**Pembaruan v0.3.5:** panel RGB operator, slider hijau–magenta, dan angka kecerahan yang lebih jelas. Master 20 → produk 30 ditampilkan **+10 poin pada skala 0–100**. Kartu dan laporan memakai perhitungan yang sama. Baca [catatan v0.3.5](RELEASE_v0.3.5.md) dan [hasil audit](AUDIT_OPERATOR_v0.3.5.md).
+
 Mulai v0.3.3, hasil QC menerjemahkan pergeseran RGB menjadi bahasa sederhana untuk operator:
 
 - **Warna Seimbang**

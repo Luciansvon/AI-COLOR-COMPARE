@@ -120,8 +120,8 @@ export function compareStats(
       ? ((productStats.saturation - masterStats.saturation) / masterStats.saturation) * 100
       : 0;
 
-  const shadowClipped = productStats.shadowClippingRatio > 0.05;
-  const highlightClipped = productStats.highlightClippingRatio > 0.05;
+  const shadowClipped = productStats.shadowClippingRatio > 0.05 || masterStats.shadowClippingRatio > 0.05;
+  const highlightClipped = productStats.highlightClippingRatio > 0.05 || masterStats.highlightClippingRatio > 0.05;
 
   const measured: MeasuredEvidence = {
     deltaE00: Number(deltaE00.toFixed(2)),

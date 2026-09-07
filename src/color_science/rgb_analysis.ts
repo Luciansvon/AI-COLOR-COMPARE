@@ -1,6 +1,6 @@
 import { MeasuredEvidence } from '../types';
 
-export type RgbBias = 'balanced' | 'red' | 'green' | 'blue';
+export type RgbBias = 'balanced' | 'red' | 'green' | 'blue' | 'yellow' | 'uncertain';
 
 export interface RgbBalanceAnalysis {
   available: boolean;
@@ -16,6 +16,7 @@ function round1(value: number): number {
 }
 
 function normalizedShares(rgb: { r: number; g: number; b: number }) {
+  if (![rgb.r, rgb.g, rgb.b].every((value) => Number.isFinite(value) && value >= 0 && value <= 255)) return null;
   const total = rgb.r + rgb.g + rgb.b;
   if (total <= 0) return null;
 
@@ -27,7 +28,7 @@ function normalizedShares(rgb: { r: number; g: number; b: number }) {
 }
 
 function signed(value: number): string {
-  return value > 0 ? `+${value.toFixed(1)}%` : `${value.toFixed(1)}%`;
+  return `${value > 0 ? '+' : ''}${value.toFixed(1)} poin persen`;
 }
 
 /**
@@ -61,7 +62,7 @@ export function analyzeRgbBalance(measured: MeasuredEvidence): RgbBalanceAnalysi
   const master = normalizedShares(measured.masterRgb);
   const product = normalizedShares(measured.productRgb);
 
-  if (!master || !product) {
+  if (!master || !product || ![measured.deltaA, measured.deltaB].every(Number.isFinite)) {
     return {
       available: false,
       bias: 'balanced',
@@ -72,36 +73,28 @@ export function analyzeRgbBalance(measured: MeasuredEvidence): RgbBalanceAnalysi
     };
   }
 
-  const delta = {
-    r: round1((product.r - master.r) * 100),
-    g: round1((product.g - master.g) * 100),
-    b: round1((product.b - master.b) * 100),
+  const rawDelta = {
+    r: (product.r - master.r) * 100,
+    g: (product.g - master.g) * 100,
+    b: (product.b - master.b) * 100,
   };
+  const delta = { r: round1(rawDelta.r), g: round1(rawDelta.g), b: round1(rawDelta.b) };
 
-  const maxAbs = Math.max(Math.abs(delta.r), Math.abs(delta.g), Math.abs(delta.b));
+  const maxAbs = Math.max(Math.abs(rawDelta.r), Math.abs(rawDelta.g), Math.abs(rawDelta.b));
   const chromaShift = Math.sqrt(measured.deltaA * measured.deltaA + measured.deltaB * measured.deltaB);
 
   let bias: RgbBias = 'balanced';
 
   // Jangan memaksa label warna jika pergeseran RGB dan Lab sama-sama sangat kecil.
   if (!(maxAbs <= 1.2 && chromaShift <= 2.0)) {
-    // Lab dipakai sebagai validasi arah supaya diagnosis RGB tidak tertipu karakter alami kayu.
-    if (measured.deltaA >= 1.5 && delta.r > 0) {
-      bias = 'red';
-    } else if (measured.deltaA <= -1.5 && delta.g > 0) {
-      bias = 'green';
-    } else if (measured.deltaB <= -1.8 && delta.b > 0) {
-      bias = 'blue';
-    } else {
-      const ranked: Array<[Exclude<RgbBias, 'balanced'>, number]> = [
-        ['red', delta.r],
-        ['green', delta.g],
-        ['blue', delta.b],
-      ];
-      ranked.sort((a, b) => b[1] - a[1]);
-
-      if (ranked[0][1] > 1.2) bias = ranked[0][0];
-    }
+    // Pilih sumbu dominan; merah tidak boleh selalu mengalahkan biru yang lebih kuat.
+    const candidates: Array<[RgbBias, number]> = [];
+    if (measured.deltaA >= 1.5 && rawDelta.r > 0) candidates.push(['red', measured.deltaA / 1.5]);
+    if (measured.deltaA <= -1.5 && rawDelta.g > 0) candidates.push(['green', -measured.deltaA / 1.5]);
+    if (measured.deltaB <= -1.8 && rawDelta.b > 0) candidates.push(['blue', -measured.deltaB / 1.8]);
+    if (measured.deltaB >= 1.8 && rawDelta.b < 0) candidates.push(['yellow', measured.deltaB / 1.8]);
+    candidates.sort((a, b) => b[1] - a[1]);
+    bias = candidates[0]?.[0] ?? 'uncertain';
   }
 
   const severity = maxAbs > 2.5 ? 'Cenderung' : 'Sedikit';
@@ -112,6 +105,10 @@ export function analyzeRgbBalance(measured: MeasuredEvidence): RgbBalanceAnalysi
       ? `${severity} Kehijauan`
       : bias === 'blue'
       ? `${severity} Kebiruan`
+      : bias === 'yellow'
+      ? `${severity} Kekuningan`
+      : bias === 'uncertain'
+      ? 'Arah Warna Belum Pasti'
       : 'Warna Seimbang';
 
   const summary = `${label}. Perubahan proporsi terhadap master: R ${signed(delta.r)}, G ${signed(delta.g)}, B ${signed(delta.b)}.`;
@@ -123,34 +120,29 @@ export function analyzeRgbBalance(measured: MeasuredEvidence): RgbBalanceAnalysi
       label,
       deltaSharePercent: delta,
       summary,
-      cameraAction: 'Periksa eksposur, silau, atau area terlalu gelap terlebih dahulu. Koreksi White Balance setelah clipping hilang.',
+      cameraAction: 'Periksa eksposur, silau, atau area terlalu gelap pada foto master dan produk terlebih dahulu. Koreksi White Balance setelah clipping hilang.',
     };
   }
 
-  if (bias === 'balanced') {
+  if (bias === 'balanced' || bias === 'uncertain') {
     return {
       available: true,
       bias,
       label,
       deltaSharePercent: delta,
       summary,
-      cameraAction: 'RGB sudah seimbang terhadap master. Pertahankan White Balance kamera.',
+      cameraAction: bias === 'balanced'
+        ? 'RGB sudah seimbang terhadap master. Pertahankan White Balance kamera.'
+        : 'Arah RGB dan Lab belum cukup konsisten. Samakan area pembanding dan pencahayaan, lalu foto ulang sebelum mengubah White Balance.',
     };
   }
 
   const directions: string[] = [];
 
-  if (measured.deltaB > 1.8) directions.push('B (Blue / lebih dingin)');
-  if (measured.deltaB < -1.8) directions.push('A (Amber / lebih hangat)');
-  if (measured.deltaA > 1.5) directions.push('G (Green)');
-  if (measured.deltaA < -1.5) directions.push('M (Magenta)');
-
-  // Fallback jika pergeseran RGB terlihat tetapi nilai Lab berada dekat ambang.
-  if (directions.length === 0) {
-    if (bias === 'red') directions.push('G (Green)');
-    if (bias === 'green') directions.push('M (Magenta)');
-    if (bias === 'blue') directions.push('A (Amber / lebih hangat)');
-  }
+  if (measured.deltaB >= 1.8) directions.push('B (Blue / lebih dingin)');
+  if (measured.deltaB <= -1.8) directions.push('A (Amber / lebih hangat)');
+  if (measured.deltaA >= 1.5) directions.push('G (Green)');
+  if (measured.deltaA <= -1.5) directions.push('M (Magenta)');
 
   return {
     available: true,
@@ -158,6 +150,6 @@ export function analyzeRgbBalance(measured: MeasuredEvidence): RgbBalanceAnalysi
     label,
     deltaSharePercent: delta,
     summary,
-    cameraAction: `Canon EOS 80D: mulai 1 langkah White Balance Correction ke ${directions.join(' + ')}, foto ulang, lalu bandingkan lagi.`,
+    cameraAction: `Jika memakai Canon EOS 80D: buka Menu Pemotretan 2 → WB Shift/Bkt. Coba 1 langkah dari posisi saat ini ke ${directions.join(' + ')}, foto ulang, lalu bandingkan lagi. Ini percobaan awal, bukan angka koreksi kamera yang sudah dikalibrasi.`,
   };
 }

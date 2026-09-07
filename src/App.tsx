@@ -161,6 +161,7 @@ export const App: React.FC = () => {
       {/* Main Content Area */}
       <main className="flex-1 px-6 pt-6">
         <MainQCScreen
+          key={currentMaster.id}
           currentMaster={currentMaster}
           onSaveQCRecord={handleSaveQCRecord}
         />

@@ -2,6 +2,12 @@
 
 import { ROIItem, MeasuredEvidence, CorrectionParams, CorrectionConflict } from '../types';
 
+export const ZERO_CORRECTION: CorrectionParams = {
+  temperatureK: 0, tint: 0, exposureEV: 0, brightness: 0, contrast: 0, saturation: 0,
+};
+
+const clamp = (value: number, limit: number) => Math.max(-limit, Math.min(limit, value));
+
 export interface ROIAnalysisPair {
   roi: ROIItem;
   measured?: MeasuredEvidence;
@@ -31,7 +37,19 @@ export function calculateRecommendedCorrection(pairs: ROIAnalysisPair[]): {
     };
   }
 
-  // 1. Hitung kebutuhan koreksi per ROI
+  const clippedPair = pairs.find((p) => p.measured?.clippingWarning?.highlightClipped || p.measured?.clippingWarning?.shadowClipped);
+  if (clippedPair) {
+    return {
+      recommended: { ...ZERO_CORRECTION },
+      conflict: { hasConflict: true, details: {
+        improvedROI: clippedPair.roi.name,
+        worsenedROI: clippedPair.roi.name,
+        reason: `Foto master atau produk pada ${clippedPair.roi.name} memiliki area silau/terlalu gelap. Perbaiki pengambilan foto sebelum menerapkan saran otomatis.`,
+      } },
+    };
+  }
+
+  // 1. Estimasi untuk pratinjau aplikasi, bukan kalibrasi Kelvin/langkah kamera.
   // Jika produk lebih kuning (deltaB > 0), turunkan temperatur (negatif). 1 unit deltaB ≈ ~60K
   // Jika produk lebih terang (deltaL > 0), turunkan exposure (negatif). 1 unit deltaL ≈ ~0.03 EV
   const individualCorrections = masterBackedPairs.map((p) => {
@@ -64,20 +82,20 @@ export function calculateRecommendedCorrection(pairs: ROIAnalysisPair[]): {
       const b = individualCorrections[j];
 
       // Konflik Eksposur: Satu butuh sangat terang (+EV), satu butuh sangat gelap (-EV)
-      if (Math.sign(a.expTarget) !== Math.sign(b.expTarget) && Math.abs(a.expTarget - b.expTarget) > 0.4) {
+      if (a.expTarget * b.expTarget < 0 && Math.abs(a.expTarget - b.expTarget) > 0.4) {
         hasConflict = true;
         const improved = a.expTarget > 0 ? a.roiName : b.roiName;
         const worsened = a.expTarget > 0 ? b.roiName : a.roiName;
         conflictDetails = {
           improvedROI: improved,
           worsenedROI: worsened,
-          reason: `Koreksi pencahayaan yang memperbaiki ${improved} akan membuat ${worsened} menjadi terlalu ${a.expTarget > 0 ? 'silau/terang' : 'gelap'}.`,
+          reason: `Menerangkan ${improved} akan membuat ${worsened} semakin terang. Periksa pencahayaan tiap area.`,
         };
         break;
       }
 
       // Konflik Suhu Warna: Satu terlalu kuning, satu terlalu biru
-      if (Math.sign(a.tempTarget) !== Math.sign(b.tempTarget) && Math.abs(a.tempTarget - b.tempTarget) > 250) {
+      if (a.tempTarget * b.tempTarget < 0 && Math.abs(a.tempTarget - b.tempTarget) > 250) {
         hasConflict = true;
         conflictDetails = {
           improvedROI: a.roiName,
@@ -86,11 +104,21 @@ export function calculateRecommendedCorrection(pairs: ROIAnalysisPair[]): {
         };
         break;
       }
+
+      if (a.tintTarget * b.tintTarget < 0 && Math.abs(a.tintTarget - b.tintTarget) > 7.5) {
+        hasConflict = true;
+        conflictDetails = {
+          improvedROI: a.roiName,
+          worsenedROI: b.roiName,
+          reason: `Arah hijau–magenta berlawanan antara ${a.roiName} dan ${b.roiName}. Satu setelan White Balance tidak dapat memperbaiki keduanya sekaligus. Periksa lampu, pantulan, dan bahan tiap area.`,
+        };
+        break;
+      }
     }
     if (hasConflict) break;
   }
 
-  // 3. Jika tidak ada konflik, hitung rata-rata rekomendasi berbobot
+  // 3. Rata-rata tiap area dengan bobot yang sama.
   const avgTemp = Math.round(
     individualCorrections.reduce((acc, c) => acc + c.tempTarget, 0) / individualCorrections.length
   );
@@ -129,12 +157,12 @@ export function calculateRecommendedCorrection(pairs: ROIAnalysisPair[]): {
 
   return {
     recommended: {
-      temperatureK: hasConflict ? 0 : avgTemp,
-      tint: hasConflict ? 0 : avgTint,
-      exposureEV: hasConflict ? 0 : safeAvgExp,
+      temperatureK: hasConflict ? 0 : clamp(avgTemp, 800),
+      tint: hasConflict ? 0 : clamp(avgTint, 100),
+      exposureEV: hasConflict ? 0 : clamp(safeAvgExp, 1.5),
       brightness: 0,
       contrast: 0,
-      saturation: hasConflict ? 0 : avgSat,
+      saturation: hasConflict ? 0 : clamp(avgSat, 50),
     },
     conflict: {
       hasConflict,

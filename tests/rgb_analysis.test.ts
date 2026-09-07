@@ -88,3 +88,17 @@ function measured(overrides: Partial<MeasuredEvidence>): MeasuredEvidence {
 }
 
 console.log('RGB analysis tests: PASS');
+
+// Kuning tidak boleh dibaca hijau/merah hanya karena proporsi biru berkurang.
+assert.equal(analyzeRgbBalance(measured({ deltaB: 6, productRgb: { r: 130, g: 90, b: 20 } })).bias, 'yellow');
+// Dua sumbu dapat bergeser sekaligus; pilih arah dominan tanpa menghilangkan sumbu lain.
+const mixed = analyzeRgbBalance(measured({ deltaA: 2, deltaB: -8, productRgb: { r: 150, g: 55, b: 65 } }));
+assert.equal(mixed.bias, 'blue');
+assert.match(mixed.cameraAction, /A \(Amber/);
+assert.match(mixed.cameraAction, /G \(Green\)/);
+assert.equal(analyzeRgbBalance(measured({ productRgb: { r: 160, g: 60, b: 20 } })).bias, 'uncertain');
+for (const r of [NaN, Infinity, -1, 256]) {
+  assert.equal(analyzeRgbBalance(measured({ productRgb: { r, g: 80, b: 40 } })).available, false);
+}
+assert.equal(analyzeRgbBalance(measured({ deltaA: NaN })).available, false);
+console.log('RGB: arah dominan, kuning, ketidakpastian, dan validasi data lulus.');
