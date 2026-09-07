@@ -25,6 +25,23 @@ Dokumentasi lengkap: [RGB_ANALYSIS.md](RGB_ANALYSIS.md)
 
 ---
 
+## 🛡️ Guardrail QC v0.3.4
+
+v0.3.4 memperketat cara aplikasi menjelaskan hasil agar operator tidak mendapat kesimpulan yang lebih pasti daripada bukti pengukurannya.
+
+- Pergeseran chromatic besar **tidak lagi otomatis divonis sebagai Material / Finishing**. Jika bukti capture belum cukup, hasil menjadi **Belum Pasti** dan operator diminta menstabilkan lampu, exposure, sudut/refleksi, White Balance, serta profil kamera sebelum foto ulang terhadap master.
+- Highlight clipping sekarang dideteksi **per kanal RGB**. Satu kanal yang mentok sudah cukup untuk menandai data warna sebagai tidak aman untuk dinilai.
+- Angka ΔE00 yang dipakai UI disebut **ambang internal aplikasi**, bukan toleransi universal untuk semua material atau proyek.
+- UI tidak lagi menyatakan foto "aman lolos QC" ketika diagnosis masih belum pasti.
+- Jika texture/serat belum benar-benar diukur, UI menampilkan **Belum Diukur**, bukan nilai palsu seperti 100% identik.
+- PASS/FAIL tetap keputusan operator berdasarkan physical master dan seluruh evidence yang tersedia.
+
+Catatan lengkap siklus audit: [LOOP_QC_2026-09-07.md](LOOP_QC_2026-09-07.md)
+
+Catatan release: [RELEASE_v0.3.4.md](RELEASE_v0.3.4.md)
+
+---
+
 ## 🔄 Instalasi & Pembaruan Windows
 
 Rilis Windows memakai installer **NSIS current-user** dengan identitas aplikasi tetap:
@@ -58,9 +75,9 @@ npm run desktop:dev
 
 ## 🧪 Pengujian Kualitas & Sains Warna Otomatis
 
-Untuk memverifikasi keakuratan rumus warna CIEDE2000, pendeteksi konflik koreksi, database SQLite, pengamanan berkas, dan diagnosis RGB:
+Untuk memverifikasi keakuratan rumus warna CIEDE2000, pendeteksi konflik koreksi, database SQLite, pengamanan berkas, diagnosis RGB, guardrail clipping, dan copy UI:
 ```bash
-# Uji Sains Warna & Integritas File
+# Uji Sains Warna & Integritas File + regression guardrail
 npm test
 
 # Uji khusus analisis RGB
@@ -69,6 +86,8 @@ npx tsx tests/rgb_analysis.test.ts
 # Uji Native Core Rust & Database SQLite
 cargo test --manifest-path src-tauri/Cargo.toml
 ```
+
+Sebelum release Windows, workflow juga membangun installer NSIS dan memeriksa bahwa upgrade dari versi sebelumnya menghasilkan **tepat satu instalasi Studio Color QC**.
 
 ---
 
@@ -79,4 +98,5 @@ cargo test --manifest-path src-tauri/Cargo.toml
 3. **Keaslian File 100% Terjaga (Non-Destructive)**: Berkas asli kamera tidak pernah ditimpa atau diubah.
 4. **Pendeteksi Konflik Koreksi**: Mencegah fitur otomatis jika penyesuaian warna pada satu bagian kayu justru merusak bagian kayu lainnya.
 5. **RGB Bukan Penentu PASS/FAIL Tunggal**: RGB hanya menjelaskan arah pergeseran warna. Keputusan QC tetap memakai keseluruhan bukti seperti ΔE00, Lab, brightness, texture, dan pemeriksaan operator.
-6. **Ringan & CPU-First**: Berjalan cepat pada komputer standar kantor studio (RAM 8 GB tanpa kartu grafis khusus).
+6. **Tidak Mengarang Evidence**: Jika texture atau penyebab belum terbukti, UI harus menyatakan belum diukur/belum pasti.
+7. **Ringan & CPU-First**: Berjalan pada komputer standar kantor studio (target RAM 8 GB tanpa kartu grafis khusus).
