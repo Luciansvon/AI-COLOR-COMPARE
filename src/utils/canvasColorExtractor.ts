@@ -2,6 +2,7 @@
 
 import { ROIBox, CorrectionParams } from '../types';
 import { extractROIStats, PixelDataStats } from '../color_science/metrics';
+import { applyCorrectionToRgb, hasActiveCorrection } from '../color_science/imageCorrection';
 
 /**
  * Memuat gambar dari URL/DataURL ke objek HTMLImageElement
@@ -30,7 +31,6 @@ export async function extractStatsFromImageROI(
   const totalWidth = img.naturalWidth || img.width;
   const totalHeight = img.naturalHeight || img.height;
 
-  // Hitung koordinat piksel berdasarkan persentase ROI
   const pixelX = Math.round((box.x / 100) * totalWidth);
   const pixelY = Math.round((box.y / 100) * totalHeight);
   const pixelW = Math.max(1, Math.round((box.width / 100) * totalWidth));
@@ -41,7 +41,6 @@ export async function extractStatsFromImageROI(
   const clampedW = Math.max(1, Math.min(totalWidth - clampedX, pixelW));
   const clampedH = Math.max(1, Math.min(totalHeight - clampedY, pixelH));
 
-  // Alokasikan canvas HANYA sebesar ukuran ROI untuk menghemat memori (CPU-first 8GB RAM)
   const canvas = document.createElement('canvas');
   canvas.width = clampedW;
   canvas.height = clampedH;
@@ -94,8 +93,8 @@ export async function extractPixelsFromImageROI(
 }
 
 /**
- * Menghasilkan preview gambar yang sudah disesuaikan dengan parameter koreksi
- * NON-DESTRUCTIVE: Hanya memanipulasi canvas sementara dan menghasilkan DataURL baru
+ * Menghasilkan preview gambar yang sudah disesuaikan dengan parameter koreksi.
+ * Preview dan ekspor memakai transformasi piksel yang sama agar hasil tidak berbeda.
  */
 export async function renderCorrectedPreview(
   originalSrc: string,
@@ -108,62 +107,25 @@ export async function renderCorrectedPreview(
   const ctx = canvas.getContext('2d');
   if (!ctx) return originalSrc;
 
-  // Gambar foto asli
   ctx.drawImage(img, 0, 0);
 
-  // Jika tidak ada koreksi yang diaktifkan, kembalikan gambar asli
-  if (
-    correction.temperatureK === 0 &&
-    correction.tint === 0 &&
-    correction.exposureEV === 0 &&
-    correction.brightness === 0 &&
-    correction.saturation === 0 &&
-    correction.contrast === 0
-  ) {
+  if (!hasActiveCorrection(correction)) {
     return originalSrc;
   }
 
   const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
   const data = imgData.data;
 
-  // Faktor kalkulasi
-  // Exposure EV: 2^(EV)
-  const expMultiplier = Math.pow(2, correction.exposureEV);
-  const tempShift = correction.temperatureK / 50; // Pergeseran suhu hangat/dingin
-  const tintShift = correction.tint * 0.5;
-  const satMultiplier = 1 + correction.saturation / 100;
-  const brightnessOffset = correction.brightness * 1.2;
-
   for (let i = 0; i < data.length; i += 4) {
-    let r = data[i];
-    let g = data[i + 1];
-    let b = data[i + 2];
-
-    // 1. Exposure & Brightness
-    r = r * expMultiplier + brightnessOffset;
-    g = g * expMultiplier + brightnessOffset;
-    b = b * expMultiplier + brightnessOffset;
-
-    // 2. White Balance (Temperature: Merah/Kuning vs Biru)
-    r += tempShift * 0.8;
-    g += tempShift * 0.2 - tintShift * 0.5;
-    b -= tempShift * 1.0;
-
-    // 3. Saturation (Peningkatan selisih dari nilai abu-abu)
-    const gray = 0.299 * r + 0.587 * g + 0.114 * b;
-    r = gray + (r - gray) * satMultiplier;
-    g = gray + (g - gray) * satMultiplier;
-    b = gray + (b - gray) * satMultiplier;
-
-    data[i] = Math.max(0, Math.min(255, Math.round(r)));
-    data[i + 1] = Math.max(0, Math.min(255, Math.round(g)));
-    data[i + 2] = Math.max(0, Math.min(255, Math.round(b)));
+    const corrected = applyCorrectionToRgb(data[i], data[i + 1], data[i + 2], correction);
+    data[i] = corrected.r;
+    data[i + 1] = corrected.g;
+    data[i + 2] = corrected.b;
   }
 
   ctx.putImageData(imgData, 0, 0);
   return canvas.toDataURL('image/jpeg', 0.95);
 }
-
 
 /**
  * Menjamin hasil ekspor benar-benar berupa byte JPEG, termasuk ketika preview
@@ -186,7 +148,6 @@ export async function convertImageToJpegDataUrl(
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('Gagal mendapatkan konteks canvas untuk ekspor JPEG');
 
-  // JPEG tidak punya alpha. Gunakan putih sebagai latar yang eksplisit.
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(0, 0, width, height);
   ctx.drawImage(img, 0, 0, width, height);

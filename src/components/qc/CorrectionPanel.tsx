@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { CorrectionParams, CorrectionConflict } from '../../types';
 import { Sliders, AlertOctagon, Sparkles, RotateCcw, Download, Eye, EyeOff } from 'lucide-react';
 
@@ -14,6 +14,14 @@ interface CorrectionPanelProps {
   onExportJpeg: () => void;
 }
 
+const hasCorrection = (params: CorrectionParams) =>
+  params.temperatureK !== 0 ||
+  params.tint !== 0 ||
+  params.exposureEV !== 0 ||
+  params.brightness !== 0 ||
+  params.contrast !== 0 ||
+  params.saturation !== 0;
+
 export const CorrectionPanel: React.FC<CorrectionPanelProps> = ({
   params,
   recommended,
@@ -25,21 +33,32 @@ export const CorrectionPanel: React.FC<CorrectionPanelProps> = ({
   onTogglePreview,
   onExportJpeg,
 }) => {
+  const lastAutoAppliedRecommendation = useRef('');
+
   const updateField = (field: keyof CorrectionParams, value: number) => {
     onChangeParams({ ...params, [field]: value });
   };
 
-  const hasAnyCorrection =
-    params.temperatureK !== 0 ||
-    params.tint !== 0 ||
-    params.exposureEV !== 0 ||
-    params.brightness !== 0 ||
-    params.contrast !== 0 ||
-    params.saturation !== 0;
+  const hasAnyCorrection = hasCorrection(params);
+  const hasRecommendedCorrection = hasCorrection(recommended);
+  const recommendedKey = JSON.stringify(recommended);
+
+  // Pulihkan perilaku v0.3.4: saran baru mengisi slider sekali setelah perbandingan.
+  // Jika operator menekan Reset atau mengubah slider manual, nilainya tidak dipaksa balik lagi.
+  useEffect(() => {
+    if (conflict.hasConflict || !hasRecommendedCorrection) {
+      lastAutoAppliedRecommendation.current = '';
+      return;
+    }
+
+    if (!hasAnyCorrection && lastAutoAppliedRecommendation.current !== recommendedKey) {
+      lastAutoAppliedRecommendation.current = recommendedKey;
+      onChangeParams({ ...recommended });
+    }
+  }, [recommendedKey, recommended, conflict.hasConflict, hasAnyCorrection, hasRecommendedCorrection, onChangeParams]);
 
   return (
     <div className="bg-studio-900 border border-studio-800 rounded-xl p-5 shadow-lg space-y-4">
-      {/* Header Panel Koreksi */}
       <div className="flex items-center justify-between border-b border-studio-800 pb-3">
         <div className="flex items-center space-x-2">
           <div className="p-1.5 rounded-lg bg-amber-500/10 text-amber-400">
@@ -48,7 +67,7 @@ export const CorrectionPanel: React.FC<CorrectionPanelProps> = ({
           <div>
             <h3 className="text-sm font-semibold text-white">Simulasi Koreksi Foto</h3>
             <p className="text-xs text-studio-400">
-              Estimasi pratinjau aplikasi. Angka slider bukan setelan Canon EOS 80D.
+              Slider aktif mengikuti saran terakhir dan dipakai sama untuk preview serta ekspor JPEG.
             </p>
           </div>
         </div>
@@ -78,7 +97,6 @@ export const CorrectionPanel: React.FC<CorrectionPanelProps> = ({
         </div>
       </div>
 
-      {/* Deteksi Konflik Koreksi (REQ-CONFLICT-001 s/d REQ-CONFLICT-003) */}
       {conflict.hasConflict && conflict.details && (
         <div className="p-3.5 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-200 text-xs space-y-1.5">
           <div className="flex items-center gap-2 font-bold text-rose-400">
@@ -92,7 +110,6 @@ export const CorrectionPanel: React.FC<CorrectionPanelProps> = ({
         </div>
       )}
 
-      {/* Rekomendasi Nilai Kalkulasi */}
       {!conflict.hasConflict && (
         <div className="bg-studio-950 p-3 rounded-lg border border-studio-800/80 flex items-center justify-between">
           <div className="text-xs text-studio-300">
@@ -100,8 +117,10 @@ export const CorrectionPanel: React.FC<CorrectionPanelProps> = ({
             {recommended.temperatureK !== 0 && `Suhu ${recommended.temperatureK > 0 ? `+${recommended.temperatureK}` : recommended.temperatureK} K, `}
             {recommended.tint !== 0 && `Hijau–Magenta ${recommended.tint > 0 ? '+' : ''}${recommended.tint}, `}
             {recommended.exposureEV !== 0 && `Eksposur ${recommended.exposureEV > 0 ? `+${recommended.exposureEV}` : recommended.exposureEV} EV, `}
+            {recommended.brightness !== 0 && `Brightness ${recommended.brightness > 0 ? '+' : ''}${recommended.brightness}, `}
+            {recommended.contrast !== 0 && `Kontras ${recommended.contrast > 0 ? '+' : ''}${recommended.contrast}, `}
             {recommended.saturation !== 0 && `Saturasi ${recommended.saturation > 0 ? `+${recommended.saturation}` : recommended.saturation}%`}
-            {recommended.temperatureK === 0 && recommended.tint === 0 && recommended.exposureEV === 0 && recommended.saturation === 0 && 'Tidak ada penyesuaian pratinjau yang disarankan.'}
+            {!hasRecommendedCorrection && 'Tidak ada penyesuaian pratinjau yang disarankan.'}
           </div>
           <button
             onClick={onApplyRecommended}
@@ -113,9 +132,7 @@ export const CorrectionPanel: React.FC<CorrectionPanelProps> = ({
         </div>
       )}
 
-      {/* Kontrol Slider Manual */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 pt-1">
-        {/* Suhu Warna (Temperature) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pt-1">
         <div className="space-y-1.5">
           <div className="flex justify-between text-xs">
             <span className="text-studio-300 font-medium">Suhu Warna (K)</span>
@@ -144,15 +161,21 @@ export const CorrectionPanel: React.FC<CorrectionPanelProps> = ({
             <span className="text-studio-300 font-medium">Hijau–Magenta</span>
             <span className="font-mono text-studio-200">{params.tint > 0 ? '+' : ''}{params.tint}</span>
           </div>
-          <input aria-label="Hijau–Magenta simulasi" type="range" min="-100" max="100" step="1"
-            value={params.tint} onChange={(e) => updateField('tint', Number(e.target.value))}
-            className="w-full h-1.5 bg-studio-800 rounded-lg appearance-none cursor-pointer accent-amber-400" />
+          <input
+            aria-label="Hijau–Magenta simulasi"
+            type="range"
+            min="-100"
+            max="100"
+            step="1"
+            value={params.tint}
+            onChange={(e) => updateField('tint', Number(e.target.value))}
+            className="w-full h-1.5 bg-studio-800 rounded-lg appearance-none cursor-pointer accent-amber-400"
+          />
           <div className="flex justify-between text-[10px] text-studio-500">
             <span>Lebih Hijau</span><span>Lebih Magenta</span>
           </div>
         </div>
 
-        {/* Eksposur (EV) */}
         <div className="space-y-1.5">
           <div className="flex justify-between text-xs">
             <span className="text-studio-300 font-medium">Eksposur (EV)</span>
@@ -176,7 +199,46 @@ export const CorrectionPanel: React.FC<CorrectionPanelProps> = ({
           </div>
         </div>
 
-        {/* Kepekatan / Saturasi */}
+        <div className="space-y-1.5">
+          <div className="flex justify-between text-xs">
+            <span className="text-studio-300 font-medium">Brightness</span>
+            <span className="font-mono text-studio-200">{params.brightness > 0 ? '+' : ''}{params.brightness}</span>
+          </div>
+          <input
+            aria-label="Brightness simulasi"
+            type="range"
+            min="-50"
+            max="50"
+            step="1"
+            value={params.brightness}
+            onChange={(e) => updateField('brightness', Number(e.target.value))}
+            className="w-full h-1.5 bg-studio-800 rounded-lg appearance-none cursor-pointer accent-amber-400"
+          />
+          <div className="flex justify-between text-[10px] text-studio-500">
+            <span>Lebih Gelap</span><span>Lebih Terang</span>
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <div className="flex justify-between text-xs">
+            <span className="text-studio-300 font-medium">Kontras</span>
+            <span className="font-mono text-studio-200">{params.contrast > 0 ? '+' : ''}{params.contrast}</span>
+          </div>
+          <input
+            aria-label="Kontras simulasi"
+            type="range"
+            min="-50"
+            max="50"
+            step="1"
+            value={params.contrast}
+            onChange={(e) => updateField('contrast', Number(e.target.value))}
+            className="w-full h-1.5 bg-studio-800 rounded-lg appearance-none cursor-pointer accent-amber-400"
+          />
+          <div className="flex justify-between text-[10px] text-studio-500">
+            <span>Lebih Flat</span><span>Lebih Tegas</span>
+          </div>
+        </div>
+
         <div className="space-y-1.5">
           <div className="flex justify-between text-xs">
             <span className="text-studio-300 font-medium">Saturasi (%)</span>
@@ -201,10 +263,9 @@ export const CorrectionPanel: React.FC<CorrectionPanelProps> = ({
         </div>
       </div>
 
-      {/* Tombol Ekspor JPEG Non-Destruktif (REQ-EXPORT-001 s/d REQ-EXPORT-005) */}
       <div className="pt-2 border-t border-studio-800 flex items-center justify-between">
         <div className="text-[11px] text-studio-400">
-          <span className="font-medium text-studio-300">Prinsip Keaslian:</span> Berkas asli (RAW/JPEG) kamera tidak akan pernah disentuh atau ditimpa. Ekspor akan menghasilkan berkas JPEG sRGB baru yang bersih.
+          <span className="font-medium text-studio-300">Prinsip Keaslian:</span> Berkas asli kamera tidak disentuh. Preview dan ekspor memakai parameter koreksi aktif yang sama.
         </div>
 
         <button

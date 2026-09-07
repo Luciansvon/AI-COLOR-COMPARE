@@ -43,17 +43,20 @@ jobs:
       - name: Periksa Rust core
         run: cargo check --manifest-path src-tauri/Cargo.toml
 
-      - name: Build installer NSIS dengan WebView2 offline
+      - name: Build installer NSIS standar
         run: npx --yes @tauri-apps/cli@2.11.4 build --bundles nsis
 
-      - name: Pastikan installer terbentuk
+      - name: Pastikan installer terbentuk dan tetap ringan
         shell: pwsh
         run: |
           $installer = Get-ChildItem -Path "src-tauri/target/release/bundle/nsis" -Filter "*.exe" -File | Select-Object -First 1
           if (-not $installer) {
             throw "Installer NSIS tidak ditemukan."
           }
-          Write-Host "Installer terverifikasi: $($installer.FullName)"
+          if ($installer.Length -gt 60MB) {
+            throw "Installer standar terlalu besar ($([math]::Round($installer.Length / 1MB, 1)) MB). Periksa apakah WebView2 offline ikut terbungkus."
+          }
+          Write-Host "Installer standar terverifikasi: $($installer.FullName) ($([math]::Round($installer.Length / 1MB, 1)) MB)"
 
       - name: Simpan installer hasil smoke test
         uses: actions/upload-artifact@v4
