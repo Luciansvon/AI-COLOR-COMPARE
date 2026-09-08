@@ -2,116 +2,212 @@
 
 <div align="center">
   <img src="public/app-icon.png" width="128" height="128" alt="Studio Color QC Logo" />
-  <p><strong>Aplikasi Desktop Windows untuk Konsistensi Warna & Kontrol Kualitas Material Furnitur Studio</strong></p>
-  <p><em>Repositori Resmi: <a href="https://github.com/Luciansvon/AI-COLOR-COMPARE">Luciansvon/AI-COLOR-COMPARE</a></em></p>
+  <p><strong>Windows desktop QC untuk membandingkan warna dan material furnitur terhadap physical master.</strong></p>
+  <p><em>Local-first • CPU-first • Operator tetap memegang keputusan PASS/FAIL</em></p>
 </div>
 
 ---
 
-## Ekspor batch dari satu foto acuan (perubahan lokal setelah v0.3.6)
+## ⚠️ Status Release v0.3.8
 
-1. Masukkan master dan satu foto produk, lalu tekan **Bandingkan Sekarang**.
-2. Terapkan saran atau atur slider, kemudian periksa **Preview Koreksi**.
-3. Pada **Pakai Koreksi Ini ke Foto Lain**, pilih foto tambahan dari produk dan pencahayaan yang sama.
-4. Tekan **Ekspor Acuan + ... Foto ke ZIP**. Foto acuan ikut diekspor bersama foto tambahan.
+**v0.3.8 berhasil dibuild dan dipublikasikan, tetapi saat ini BLOCKED untuk rollout production di studio.**
 
-Semua foto memakai salinan nilai slider saat ekspor dimulai. Tidak ada perhitungan saran otomatis baru per foto. ZIP berisi JPEG dan `koreksi-batch.json` yang mencatat foto acuan, parameter koreksi, serta pemetaan nama berkas. Nama duplikat diberi nomor. Gagal memproses satu foto atau pembatalan menghentikan batch tanpa mengunduh ZIP parsial.
+Pengujian nyata menemukan bug P0 pada klasifikasi permukaan: **permukaan kayu yang jelas berserat dapat salah dibaca sebagai `Permukaan halus` / tanpa serat**. Sampai bug false-smooth ini diperbaiki dan regression test foto studio nyata lolos, jangan memakai hasil klasifikasi tekstur v0.3.8 sebagai dasar keputusan QC production.
 
-Batas per batch: 50 foto termasuk acuan, total input dan hasil JPEG masing-masing maksimal 200 MB; format JPG, PNG, dan WebP. Proses berjalan berurutan di perangkat, tanpa mengunggah foto. Setelan yang sama tidak menjamin warna akhir identik bila cahaya atau eksposur foto berbeda. Batch tidak membuat keputusan PASS/FAIL otomatis.
+Yang tetap valid untuk diuji:
 
-Status audit dan batas pengujian: [AUDIT_BATCH_2026-09-08.md](AUDIT_BATCH_2026-09-08.md).
+- analisis warna/Lab/ΔE00;
+- analisis RGB operator;
+- preview koreksi warna;
+- batch export;
+- upgrade installer;
+- workflow dan build Windows.
+
+Audit lengkap: [`docs/audits/RELEASE_AUDIT_v0.3.8.md`](docs/audits/RELEASE_AUDIT_v0.3.8.md)
+
+Release notes: [`RELEASE_v0.3.8.md`](RELEASE_v0.3.8.md)
+
+---
+
+## 📦 Installer Windows v0.3.8
+
+Release menyediakan dua installer x64 dengan fungsi berbeda:
+
+| Installer | Ukuran | Kapan dipakai |
+|---|---:|---|
+| `Studio-Color-QC-v0.3.8-Windows-x64-Setup.exe` | ~5.1 MiB | PC online atau PC yang sudah memiliki WebView2 Runtime. Jika WebView2 belum ada, installer memakai bootstrap download. |
+| `Studio-Color-QC-v0.3.8-Windows-x64-Offline-Full-Setup.exe` | ~255 MiB | PC studio offline. WebView2 Runtime ikut dibundel. |
+
+Keduanya memakai NSIS `currentUser`, product name `Studio Color QC`, identifier `com.studio.colorqc`, dan versi baru menimpa instalasi lama di lokasi yang sama. Workflow v0.3.8 sudah menguji upgrade `v0.3.7 → v0.3.8` dan memastikan registry hanya memiliki satu instalasi versi `0.3.8`.
+
+> Catatan penting: workflow saat ini baru membuktikan build Offline Full berhasil. Instalasi + launch Offline Full pada PC studio nyata tetap wajib dites manual.
+
+---
+
+## 🎯 Fungsi Utama
+
+Studio Color QC bukan aplikasi untuk mempercantik foto. Sistem membantu operator menentukan apakah perbedaan yang terlihat kemungkinan berasal dari material/finishing atau dari kondisi capture seperti exposure, white balance, lighting, reflection, dan kamera.
+
+Alur utamanya:
+
+1. Pilih foto master / physical master reference.
+2. Pilih foto produk.
+3. Tentukan ROI material yang sebanding.
+4. Sistem menghitung evidence warna dan material.
+5. Operator membaca diagnosis dan rekomendasi.
+6. Keputusan akhir **PASS/FAIL tetap di tangan operator**.
+
+Evidence utama:
+
+- Lab dan CIEDE2000 (ΔE00);
+- brightness, contrast, saturation;
+- clipping highlight/shadow;
+- arah pergeseran RGB;
+- texture / grain evidence;
+- konflik antar-ROI;
+- guardrail area tanpa master.
+
+---
 
 ## 🎨 Analisis RGB untuk Operator Studio
 
-**Pembaruan v0.3.5:** panel RGB operator, slider hijau–magenta, dan angka kecerahan yang lebih jelas. Master 20 → produk 30 ditampilkan **+10 poin pada skala 0–100**. Kartu dan laporan memakai perhitungan yang sama. Baca [catatan v0.3.5](RELEASE_v0.3.5.md) dan [hasil audit](AUDIT_OPERATOR_v0.3.5.md).
-
-Mulai v0.3.3, hasil QC menerjemahkan pergeseran RGB menjadi bahasa sederhana untuk operator:
+Mulai v0.3.3, hasil QC menerjemahkan pergeseran RGB menjadi bahasa sederhana:
 
 - **Warna Seimbang**
 - **Sedikit / Cenderung Kemerahan**
 - **Sedikit / Cenderung Kehijauan**
 - **Sedikit / Cenderung Kebiruan**
 
-Sistem tidak membandingkan angka R, G, dan B mentah karena kayu coklat memang secara alami memiliki kanal merah lebih tinggi. Yang dibandingkan adalah **proporsi RGB produk terhadap master fisik pada ROI yang sama**, lalu arah warnanya divalidasi lagi dengan sumbu Lab.
+Sistem tidak membandingkan angka R, G, dan B mentah karena kayu coklat secara alami memiliki kanal merah lebih tinggi. Yang dibandingkan adalah **proporsi RGB produk terhadap master fisik pada ROI yang sama**, lalu arahnya divalidasi dengan sumbu Lab.
 
-Untuk kamera studio **Canon EOS 80D**, aplikasi memberi arah koreksi White Balance Correction yang mudah dibaca, misalnya **B (Blue)**, **A (Amber)**, **G (Green)**, atau **M (Magenta)**. Sistem hanya menyarankan mulai dari 1 langkah lalu foto ulang dan bandingkan lagi; jumlah langkah tidak ditebak dari angka Lab.
+Untuk kamera studio **Canon EOS 80D**, aplikasi memberi arah koreksi White Balance Correction yang mudah dibaca seperti **B (Blue)**, **A (Amber)**, **G (Green)**, atau **M (Magenta)**. Sistem menyarankan perubahan secara konservatif dan operator tetap melakukan foto ulang untuk verifikasi.
 
-Dokumentasi lengkap: [RGB_ANALYSIS.md](RGB_ANALYSIS.md)
-
----
-
-## 🛡️ Guardrail QC v0.3.4
-
-v0.3.4 memperketat cara aplikasi menjelaskan hasil agar operator tidak mendapat kesimpulan yang lebih pasti daripada bukti pengukurannya.
-
-- Pergeseran chromatic besar **tidak lagi otomatis divonis sebagai Material / Finishing**. Jika bukti capture belum cukup, hasil menjadi **Belum Pasti** dan operator diminta menstabilkan lampu, exposure, sudut/refleksi, White Balance, serta profil kamera sebelum foto ulang terhadap master.
-- Highlight clipping sekarang dideteksi **per kanal RGB**. Satu kanal yang mentok sudah cukup untuk menandai data warna sebagai tidak aman untuk dinilai.
-- Angka ΔE00 yang dipakai UI disebut **ambang internal aplikasi**, bukan toleransi universal untuk semua material atau proyek.
-- UI tidak lagi menyatakan foto "aman lolos QC" ketika diagnosis masih belum pasti.
-- Jika texture/serat belum benar-benar diukur, UI menampilkan **Belum Diukur**, bukan nilai palsu seperti 100% identik.
-- PASS/FAIL tetap keputusan operator berdasarkan physical master dan seluruh evidence yang tersedia.
-
-Catatan lengkap siklus audit: [LOOP_QC_2026-09-07.md](LOOP_QC_2026-09-07.md)
-
-Catatan release: [RELEASE_v0.3.4.md](RELEASE_v0.3.4.md)
+Dokumentasi: [`RGB_ANALYSIS.md`](RGB_ANALYSIS.md)
 
 ---
 
-## 🔄 Instalasi & Pembaruan Windows
+## 🪵 Analisis Permukaan & Serat
 
-Rilis Windows memakai installer **NSIS current-user** dengan identitas aplikasi tetap:
+v0.3.8 menambahkan klasifikasi `smooth`, `textured`, dan `mixed` untuk mencegah noise kamera pada bidang polos dianggap sebagai serat kayu.
 
-- Product name: `Studio Color QC`
-- Identifier: `com.studio.colorqc`
-- Install mode: `currentUser`
+Namun real-world test menemukan sisi sebaliknya: threshold smooth saat ini dapat terlalu agresif pada serat tipis, low-contrast, soft-light, atau sedikit blur. Karena itu:
 
-Saat installer versi baru dijalankan di PC yang sudah memiliki Studio Color QC, instalasi lama **di-upgrade / ditimpa di lokasi aplikasi yang sama**, bukan membuat aplikasi kedua. Downgrade ke versi lebih lama juga diblokir.
-
-> Catatan: rilis lama berbentuk executable portable tidak dihitung sebagai instalasi Windows. Upgrade-in-place berlaku untuk jalur installer NSIS mulai v0.3.2 dan seterusnya.
+- `smooth` pada v0.3.8 **belum boleh dianggap production-trusted**;
+- `textured` harus diverifikasi dengan foto nyata;
+- hasil yang ambigu sebaiknya diperlakukan sebagai **belum pasti**, bukan otomatis mulus;
+- release berikutnya harus menambah regression fixture serat jelas + serat tipis/low-contrast + kondisi terang/gelap/soft-light.
 
 ---
 
-## 💡 Cara Menjalankan Aplikasi
+## 🛡️ Guardrail QC
 
-### Mode 1: Pratinjau Web Cepat (Browser)
-Sangat praktis untuk mencoba tampilan dan simulasi langsung di peramban:
+Sistem sengaja membatasi kesimpulan agar operator tidak mendapat diagnosis yang lebih pasti daripada evidence yang tersedia.
+
+- Pergeseran chromatic besar tidak otomatis divonis masalah material/finishing.
+- Highlight clipping dideteksi per kanal RGB.
+- ΔE00 adalah ambang internal aplikasi, bukan toleransi universal semua material/proyek.
+- Diagnosis yang belum cukup bukti harus tampil sebagai **Belum Pasti**.
+- RGB bukan penentu PASS/FAIL tunggal.
+- File kamera asli tidak pernah ditimpa.
+- Konflik antar-ROI membatalkan koreksi otomatis.
+- Guardrail area tanpa master mencegah exposure global merusak area lain.
+
+---
+
+## 📦 Ekspor Batch
+
+Satu foto acuan dapat dipakai sebagai basis koreksi untuk foto lain dari produk dan pencahayaan yang sama.
+
+1. Masukkan master dan foto produk, lalu tekan **Bandingkan Sekarang**.
+2. Terapkan saran atau atur slider dan periksa **Preview Koreksi**.
+3. Pada **Pakai Koreksi Ini ke Foto Lain**, pilih foto tambahan.
+4. Tekan **Ekspor Acuan + ... Foto ke ZIP**.
+
+Semua foto memakai salinan parameter slider saat ekspor dimulai. Tidak ada perhitungan saran otomatis baru per foto. ZIP berisi JPEG dan `koreksi-batch.json`.
+
+Batas batch:
+
+- maksimal 50 foto termasuk acuan;
+- total input maksimal 200 MB;
+- total hasil JPEG maksimal 200 MB;
+- format JPG, PNG, WebP;
+- proses lokal, tanpa upload ke server.
+
+Setelan sama tidak menjamin warna akhir identik jika lighting atau exposure tiap foto berbeda.
+
+Audit batch: [`AUDIT_BATCH_2026-09-08.md`](AUDIT_BATCH_2026-09-08.md)
+
+---
+
+## 🧪 Menjalankan Test
+
 ```bash
+npm test
+npx tsx tests/rgb_analysis.test.ts
+cargo test --manifest-path src-tauri/Cargo.toml
+cargo check --manifest-path src-tauri/Cargo.toml
+```
+
+Sebelum release Windows, workflow juga:
+
+- build frontend;
+- menjalankan test TypeScript;
+- menjalankan test Rust;
+- build installer NSIS standar;
+- menguji upgrade-in-place dari versi sebelumnya;
+- build installer Offline Full;
+- publish GitHub Release.
+
+**CI hijau tidak menggantikan manual test foto studio nyata.** v0.3.8 menunjukkan bahwa regression test synthetic saja belum cukup untuk memvalidasi klasifikasi texture pada kondisi studio sebenarnya.
+
+---
+
+## 💻 Development
+
+### Browser preview
+
+```bash
+npm install
 npm run dev
 ```
-Buka di browser: `http://localhost:3000`
 
-### Mode 2: Aplikasi Desktop Asli Windows (Tauri 2)
-Menjalankan aplikasi dalam jendela native Windows terintegrasi dengan backend Rust dan database SQLite:
+Buka `http://localhost:3000`.
+
+### Tauri desktop
+
 ```bash
 npm run desktop:dev
 ```
 
----
+### Production build
 
-## 🧪 Pengujian Kualitas & Sains Warna Otomatis
-
-Untuk memverifikasi keakuratan rumus warna CIEDE2000, pendeteksi konflik koreksi, database SQLite, pengamanan berkas, diagnosis RGB, guardrail clipping, dan copy UI:
 ```bash
-# Uji Sains Warna & Integritas File + regression guardrail
-npm test
-
-# Uji khusus analisis RGB
-npx tsx tests/rgb_analysis.test.ts
-
-# Uji Native Core Rust & Database SQLite
-cargo test --manifest-path src-tauri/Cargo.toml
+npm run build
+npm run desktop:build
 ```
 
-Sebelum release Windows, workflow juga membangun installer NSIS dan memeriksa bahwa upgrade dari versi sebelumnya menghasilkan **tepat satu instalasi Studio Color QC**.
+---
+
+## 🧱 Stack
+
+- React
+- TypeScript
+- Vite
+- Tauri 2
+- Rust
+- SQLite
+- Local-first / CPU-first
+
+Target utama adalah PC studio kelas kantor, termasuk sistem dengan **8 GB RAM tanpa dedicated GPU**.
 
 ---
 
-## 🛡️ Prinsip Keamanan & Desain Produk
+## ✅ Prinsip Produk
 
-1. **Physical Master adalah Acuan Utama**: Sistem membandingkan foto produk terhadap sampel master fisik kayu yang dipilih secara manual oleh operator.
-2. **Otoritas Mutlak Operator**: Keputusan Lolos (**PASS**) atau Gagal (**FAIL**) sepenuhnya berada di tangan operator studio.
-3. **Keaslian File 100% Terjaga (Non-Destructive)**: Berkas asli kamera tidak pernah ditimpa atau diubah.
-4. **Pendeteksi Konflik Koreksi**: Mencegah fitur otomatis jika penyesuaian warna pada satu bagian kayu justru merusak bagian kayu lainnya.
-5. **RGB Bukan Penentu PASS/FAIL Tunggal**: RGB hanya menjelaskan arah pergeseran warna. Keputusan QC tetap memakai keseluruhan bukti seperti ΔE00, Lab, brightness, texture, dan pemeriksaan operator.
-6. **Tidak Mengarang Evidence**: Jika texture atau penyebab belum terbukti, UI harus menyatakan belum diukur/belum pasti.
-7. **Ringan & CPU-First**: Berjalan pada komputer standar kantor studio (target RAM 8 GB tanpa kartu grafis khusus).
+1. **Physical Master adalah acuan utama.**
+2. **Operator memegang keputusan akhir PASS/FAIL.**
+3. **Evidence tidak boleh dikarang atau dilebih-lebihkan.**
+4. **File asli kamera bersifat non-destructive.**
+5. **Diagnosis warna dan texture harus dapat diuji ulang.**
+6. **Jika bukti lemah atau konflik, sistem harus memilih `Belum Pasti` daripada pura-pura yakin.**
+7. **Real-photo regression adalah gate wajib sebelum menyatakan algoritme texture production-ready.**
