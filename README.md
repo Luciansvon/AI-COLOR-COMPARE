@@ -158,7 +158,7 @@ Sebelum release Windows, workflow juga:
 - build installer Offline Full;
 - publish GitHub Release.
 
-**CI hijau tidak menggantikan manual test foto studio nyata.** Kasus v0.3.8 membuktikan itu dengan cukup sopan, yaitu setelah release keburu jadi EXE.
+**CI hijau tidak menggantikan manual test foto studio nyata.** v0.3.8 menunjukkan bahwa regression test synthetic saja belum cukup untuk memvalidasi klasifikasi texture pada kondisi studio sebenarnya.
 
 ---
 
