@@ -53,6 +53,7 @@
 - **Audit Rilis Versi v0.3.8 (PR #10 - Selesai Digabung)**: Audit menyeluruh mencatat build installer sukses, namun ditemukan catatan penting (kayu berserat halus rawan terbaca permukaan halus/tanpa serat), sehingga disarankan perbaikan akurasi serat sebelum dipakai produksi studio.
 - **Riset Versi Android (PR #11 - Sedang Aktif/Open)**: Dokumen riset arsitektur 149 sumber untuk rencana masa depan aplikasi di perangkat Android telah diajukan di PR #11 dengan status pengujian otomatis lolos 100%.
 - **Permintaan Pembangunan APK Android & Uji Repo**: Bima meminta pembuatan berkas APK Android dan menanyakan apakah sudah diuji di repositori. Seluruh pengujian otomatis di repositori GitHub (`CI Studio Color QC` dan `Build Android Pilot APK`) serta pengujian lokal telah diverifikasi lulus 100%, sementara pengujian fisik di HP nyata diserahkan ke operator.
+- **Klarifikasi Repo Shared (B.I.M.A-DEV-INFRA)**: Bima menanyakan apakah repo shared DEV-INFRA sudah diuji. Agen harus jujur dan transparan: agen hanya mengecek daftar berkas lewat API dan BELUM pernah menjalankan pengujian di repo shared B.I.M.A-DEV-INFRA.
 
 
 
