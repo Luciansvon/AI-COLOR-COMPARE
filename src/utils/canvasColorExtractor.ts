@@ -100,31 +100,10 @@ export async function renderCorrectedPreview(
   originalSrc: string,
   correction: CorrectionParams
 ): Promise<string> {
-  const img = await loadImage(originalSrc);
-  const canvas = document.createElement('canvas');
-  canvas.width = img.naturalWidth || img.width;
-  canvas.height = img.naturalHeight || img.height;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) return originalSrc;
-
-  ctx.drawImage(img, 0, 0);
-
   if (!hasActiveCorrection(correction)) {
     return originalSrc;
   }
-
-  const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  const data = imgData.data;
-
-  for (let i = 0; i < data.length; i += 4) {
-    const corrected = applyCorrectionToRgb(data[i], data[i + 1], data[i + 2], correction);
-    data[i] = corrected.r;
-    data[i + 1] = corrected.g;
-    data[i + 2] = corrected.b;
-  }
-
-  ctx.putImageData(imgData, 0, 0);
-  return canvas.toDataURL('image/jpeg', 0.95);
+  return convertImageToJpegDataUrl(originalSrc, 0.95, correction);
 }
 
 /**
@@ -133,7 +112,8 @@ export async function renderCorrectedPreview(
  */
 export async function convertImageToJpegDataUrl(
   source: string,
-  quality: number = 0.95
+  quality: number = 0.95,
+  correction?: CorrectionParams
 ): Promise<string> {
   if (!source) throw new Error('Sumber gambar ekspor kosong');
 
@@ -151,6 +131,18 @@ export async function convertImageToJpegDataUrl(
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(0, 0, width, height);
   ctx.drawImage(img, 0, 0, width, height);
+
+  if (correction && hasActiveCorrection(correction)) {
+    const imgData = ctx.getImageData(0, 0, width, height);
+    const data = imgData.data;
+    for (let i = 0; i < data.length; i += 4) {
+      const corrected = applyCorrectionToRgb(data[i], data[i + 1], data[i + 2], correction);
+      data[i] = corrected.r;
+      data[i + 1] = corrected.g;
+      data[i + 2] = corrected.b;
+    }
+    ctx.putImageData(imgData, 0, 0);
+  }
 
   const safeQuality = Math.max(0.1, Math.min(1, quality));
   const dataUrl = canvas.toDataURL('image/jpeg', safeQuality);

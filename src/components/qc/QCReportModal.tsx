@@ -303,6 +303,8 @@ export const QCReportModal: React.FC<QCReportModalProps> = ({
               <div className="grid grid-cols-3 gap-2 font-mono text-gray-800 mt-2">
                 <div>Suhu simulasi: {correctionParams.temperatureK > 0 ? `+${correctionParams.temperatureK} K` : `${correctionParams.temperatureK} K`}</div>
                 <div>Hijau–Magenta: {correctionParams.tint}</div>
+                <div>Brightness: {correctionParams.brightness}</div>
+                <div>Kontras: {correctionParams.contrast}</div>
                 <div>Eksposur: {correctionParams.exposureEV > 0 ? `+${correctionParams.exposureEV} EV` : `${correctionParams.exposureEV} EV`}</div>
                 <div>Saturasi: {correctionParams.saturation > 0 ? `+${correctionParams.saturation}%` : `${correctionParams.saturation}%`}</div>
               </div>

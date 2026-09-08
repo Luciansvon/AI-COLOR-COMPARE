@@ -1,13 +1,13 @@
 {
   "name": "ai-color-compare",
   "private": true,
-  "version": "0.3.6",
+  "version": "0.3.7",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "test": "tsx tests/run_tests.ts && tsx tests/non_destructive.test.ts && tsx tests/tauri_bridge.test.ts && tsx tests/measurement_guardrails.test.ts && tsx tests/evidence_copy_guardrails.test.ts && tsx tests/rgb_analysis.test.ts && tsx tests/operator_audit.test.tsx && tsx tests/correction_preview.test.ts",
+    "test": "tsx tests/run_tests.ts && tsx tests/non_destructive.test.ts && tsx tests/tauri_bridge.test.ts && tsx tests/measurement_guardrails.test.ts && tsx tests/evidence_copy_guardrails.test.ts && tsx tests/rgb_analysis.test.ts && tsx tests/operator_audit.test.tsx && tsx tests/correction_preview.test.ts && tsx tests/correction_flow.test.tsx && tsx tests/batch_export.test.ts",
     "test:browser": "node tests/test_browser.mjs",
     "desktop:dev": "tauri dev",
     "desktop:build": "tauri build"
@@ -15,6 +15,7 @@
   "dependencies": {
     "@tauri-apps/api": "^2.11.1",
     "clsx": "^2.1.1",
+    "fflate": "^0.8.3",
     "lucide-react": "^1.16.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
@@ -24,10 +25,12 @@
     "@types/node": "^22.13.10",
     "@types/react": "^19.0.10",
     "@types/react-dom": "^19.0.4",
+    "@types/react-test-renderer": "19.1.0",
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.21",
     "playwright": "^1.63.0",
     "postcss": "^8.5.3",
+    "react-test-renderer": "19.2.8",
     "tailwindcss": "^3.4.17",
     "tsx": "^4.23.13",
     "typescript": "~5.7.3",

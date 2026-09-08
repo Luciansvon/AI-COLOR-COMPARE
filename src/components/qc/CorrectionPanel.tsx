@@ -1,6 +1,11 @@
-import React, { useEffect, useRef } from 'react';
+import React from 'react';
 import { CorrectionParams, CorrectionConflict } from '../../types';
-import { Sliders, AlertOctagon, Sparkles, RotateCcw, Download, Eye, EyeOff } from 'lucide-react';
+import { Sliders, AlertOctagon, Sparkles, RotateCcw, Download, Eye, EyeOff, LoaderCircle } from 'lucide-react';
+
+export interface ExportFeedback {
+  status: 'processing' | 'success' | 'error';
+  message: string;
+}
 
 interface CorrectionPanelProps {
   params: CorrectionParams;
@@ -12,6 +17,7 @@ interface CorrectionPanelProps {
   isPreviewing: boolean;
   onTogglePreview: () => void;
   onExportJpeg: () => void;
+  exportFeedback?: ExportFeedback | null;
 }
 
 const hasCorrection = (params: CorrectionParams) =>
@@ -32,30 +38,14 @@ export const CorrectionPanel: React.FC<CorrectionPanelProps> = ({
   isPreviewing,
   onTogglePreview,
   onExportJpeg,
+  exportFeedback,
 }) => {
-  const lastAutoAppliedRecommendation = useRef('');
-
   const updateField = (field: keyof CorrectionParams, value: number) => {
     onChangeParams({ ...params, [field]: value });
   };
 
   const hasAnyCorrection = hasCorrection(params);
   const hasRecommendedCorrection = hasCorrection(recommended);
-  const recommendedKey = JSON.stringify(recommended);
-
-  // Pulihkan perilaku v0.3.4: saran baru mengisi slider sekali setelah perbandingan.
-  // Jika operator menekan Reset atau mengubah slider manual, nilainya tidak dipaksa balik lagi.
-  useEffect(() => {
-    if (conflict.hasConflict || !hasRecommendedCorrection) {
-      lastAutoAppliedRecommendation.current = '';
-      return;
-    }
-
-    if (!hasAnyCorrection && lastAutoAppliedRecommendation.current !== recommendedKey) {
-      lastAutoAppliedRecommendation.current = recommendedKey;
-      onChangeParams({ ...recommended });
-    }
-  }, [recommendedKey, recommended, conflict.hasConflict, hasAnyCorrection, hasRecommendedCorrection, onChangeParams]);
 
   return (
     <div className="bg-studio-900 border border-studio-800 rounded-xl p-5 shadow-lg space-y-4">
@@ -270,12 +260,24 @@ export const CorrectionPanel: React.FC<CorrectionPanelProps> = ({
 
         <button
           onClick={onExportJpeg}
-          className="px-4 py-2 rounded-lg bg-studio-800 hover:bg-studio-700 text-studio-100 text-xs font-semibold flex items-center gap-2 border border-studio-700 transition"
+          disabled={exportFeedback?.status === 'processing'}
+          aria-busy={exportFeedback?.status === 'processing'}
+          className="px-4 py-2 rounded-lg bg-studio-800 hover:bg-studio-700 text-studio-100 text-xs font-semibold flex items-center gap-2 border border-studio-700 transition disabled:opacity-60 disabled:cursor-wait"
         >
-          <Download className="w-3.5 h-3.5 text-amber-400" />
-          Ekspor JPEG Terkoreksi (sRGB)
+          {exportFeedback?.status === 'processing'
+            ? <LoaderCircle className="w-3.5 h-3.5 text-amber-400 animate-spin" />
+            : <Download className="w-3.5 h-3.5 text-amber-400" />}
+          {exportFeedback?.status === 'processing' ? 'Sedang Mengekspor JPEG...' : 'Ekspor JPEG Terkoreksi (sRGB)'}
         </button>
       </div>
+      {exportFeedback && <p
+        role={exportFeedback.status === 'error' ? 'alert' : 'status'}
+        className={`text-xs rounded-lg border p-3 break-words ${exportFeedback.status === 'error'
+          ? 'text-rose-200 bg-rose-500/10 border-rose-500/30'
+          : exportFeedback.status === 'success'
+            ? 'text-emerald-200 bg-emerald-500/10 border-emerald-500/30'
+            : 'text-amber-200 bg-amber-500/10 border-amber-500/30'}`}
+      >{exportFeedback.message}</p>}
     </div>
   );
 };

@@ -8,6 +8,19 @@
 
 ---
 
+## Ekspor batch dari satu foto acuan (perubahan lokal setelah v0.3.6)
+
+1. Masukkan master dan satu foto produk, lalu tekan **Bandingkan Sekarang**.
+2. Terapkan saran atau atur slider, kemudian periksa **Preview Koreksi**.
+3. Pada **Pakai Koreksi Ini ke Foto Lain**, pilih foto tambahan dari produk dan pencahayaan yang sama.
+4. Tekan **Ekspor Acuan + ... Foto ke ZIP**. Foto acuan ikut diekspor bersama foto tambahan.
+
+Semua foto memakai salinan nilai slider saat ekspor dimulai. Tidak ada perhitungan saran otomatis baru per foto. ZIP berisi JPEG dan `koreksi-batch.json` yang mencatat foto acuan, parameter koreksi, serta pemetaan nama berkas. Nama duplikat diberi nomor. Gagal memproses satu foto atau pembatalan menghentikan batch tanpa mengunduh ZIP parsial.
+
+Batas per batch: 50 foto termasuk acuan, total input dan hasil JPEG masing-masing maksimal 200 MB; format JPG, PNG, dan WebP. Proses berjalan berurutan di perangkat, tanpa mengunggah foto. Setelan yang sama tidak menjamin warna akhir identik bila cahaya atau eksposur foto berbeda. Batch tidak membuat keputusan PASS/FAIL otomatis.
+
+Status audit dan batas pengujian: [AUDIT_BATCH_2026-09-08.md](AUDIT_BATCH_2026-09-08.md).
+
 ## 🎨 Analisis RGB untuk Operator Studio
 
 **Pembaruan v0.3.5:** panel RGB operator, slider hijau–magenta, dan angka kecerahan yang lebih jelas. Master 20 → produk 30 ditampilkan **+10 poin pada skala 0–100**. Kartu dan laporan memakai perhitungan yang sama. Baca [catatan v0.3.5](RELEASE_v0.3.5.md) dan [hasil audit](AUDIT_OPERATOR_v0.3.5.md).

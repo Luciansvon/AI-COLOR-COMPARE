@@ -14,12 +14,14 @@ import {
 } from '../../types';
 import { InteractiveImageViewer } from './InteractiveImageViewer';
 import { EvidenceCard } from './EvidenceCard';
-import { CorrectionPanel } from './CorrectionPanel';
+import { CorrectionPanel, ExportFeedback } from './CorrectionPanel';
+import { BatchExportPanel } from './BatchExportPanel';
 import { DecisionModal } from './DecisionModal';
 import { QCReportModal } from './QCReportModal';
 import { convertImageToJpegDataUrl, extractPixelsFromImageROI, renderCorrectedPreview } from '../../utils/canvasColorExtractor';
 import { compareStats } from '../../color_science/metrics';
 import { calculateRecommendedCorrection, ZERO_CORRECTION } from '../../color_science/correction';
+import { hasActiveCorrection } from '../../color_science/imageCorrection';
 import { evaluateMaterialFusion } from '../../color_science/texture';
 import { generateWoodTextureImage } from '../../utils/imageGenerator';
 import { Check, X, Upload, Sparkles, AlertTriangle, ShieldCheck, Camera, CheckCircle2, FolderOpen, Search, RefreshCw, ArrowRight, Printer } from 'lucide-react';
@@ -159,9 +161,15 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
   const comparisonGeneration = useRef(0);
   const [measurementCorrection, setMeasurementCorrection] = useState<CorrectionParams | null>(null);
   const [comparisonError, setComparisonError] = useState('');
+  const [exportFeedback, setExportFeedback] = useState<ExportFeedback | null>(null);
+  const exportGeneration = useRef(0);
+  const exportInFlight = useRef(false);
   const uploadReaders = useRef<{ master?: FileReader; product?: FileReader }>({});
-  const evidenceStale = measurementCorrection !== null &&
-    (!isPreviewingCorrection || JSON.stringify(measurementCorrection) !== JSON.stringify(correctionParams));
+  const visibleCorrection = isPreviewingCorrection && hasActiveCorrection(correctionParams)
+    ? correctionParams : ZERO_CORRECTION;
+  const evidenceStale = (Object.keys(ZERO_CORRECTION) as (keyof CorrectionParams)[]).some(
+    (field) => (measurementCorrection ?? ZERO_CORRECTION)[field] !== visibleCorrection[field]
+  );
 
   const clearDecisions = () => {
     setRoiDecisions({});
@@ -173,6 +181,9 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
   };
 
   const resetAnalysis = (nextStatus: 'idle' | 'ready') => {
+    exportGeneration.current += 1;
+    exportInFlight.current = false;
+    setExportFeedback(null);
     comparisonGeneration.current += 1;
     setIsRecomparing(false);
     setRecompareSuccess(false);
@@ -209,6 +220,7 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
   };
 
   useEffect(() => () => {
+    exportGeneration.current += 1;
     comparisonGeneration.current += 1;
     uploadReaders.current.master?.abort();
     uploadReaders.current.product?.abort();
@@ -404,7 +416,9 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
       // karena gambar yang tampil kemudian tidak lagi sama dengan gambar yang diukur.
       if (!appliedCorrection) {
         setRecommendedCorrection(corrResult.recommended);
-        setCorrectionParams({ ...ZERO_CORRECTION });
+        // Setiap pengukuran asli mengisi saran sekali, termasuk bila angkanya sama.
+        // Reset manual tidak memicu pengisian ulang sampai perbandingan berikutnya.
+        setCorrectionParams({ ...corrResult.recommended });
         setIsPreviewingCorrection(false);
       }
 
@@ -637,18 +651,29 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
 
   // Ekspor JPEG sRGB Non-Destruktif (REQ-EXPORT-001 s/d REQ-EXPORT-005)
   const handleExportJpeg = async () => {
-    if (!productImageSrc) return;
+    if (!productImageSrc || exportInFlight.current) return;
+    const generation = ++exportGeneration.current;
+    exportInFlight.current = true;
+    setExportFeedback({ status: 'processing', message: 'Sedang menyiapkan JPEG dengan koreksi aktif. Tunggu sebentar...' });
 
     try {
-      const source = await renderCorrectedPreview(productImageSrc, correctionParams);
-      const jpegDataUrl = await convertImageToJpegDataUrl(source, 0.95);
+      // Tampilkan indikator sebelum pekerjaan piksel dimulai.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      if (generation !== exportGeneration.current) return;
+      const jpegDataUrl = await convertImageToJpegDataUrl(productImageSrc, 0.95, correctionParams);
+      if (generation !== exportGeneration.current) return;
       const baseName = (imageMetadata.fileName || 'studio_qc_export').replace(/\.[^/.]+$/, '');
       const link = document.createElement('a');
       link.download = `${baseName}_corrected_srgb.jpg`;
       link.href = jpegDataUrl;
       link.click();
+      setExportFeedback({ status: 'success', message: `JPEG siap: ${link.download}. Permintaan unduhan dikirim. Periksa folder unduhan atau dialog penyimpanan.` });
     } catch (err) {
+      if (generation !== exportGeneration.current) return;
       console.error('Gagal mengekspor JPEG yang valid:', err);
+      setExportFeedback({ status: 'error', message: 'Ekspor JPEG gagal. Tekan Ekspor untuk mencoba lagi. Foto asli tetap tersedia.' });
+    } finally {
+      if (generation === exportGeneration.current) exportInFlight.current = false;
     }
   };
 
@@ -1221,6 +1246,13 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
             isPreviewing={isPreviewingCorrection}
             onTogglePreview={() => setIsPreviewingCorrection(!isPreviewingCorrection)}
             onExportJpeg={handleExportJpeg}
+            exportFeedback={exportFeedback}
+          />
+
+          <BatchExportPanel
+            referenceSource={productImageSrc}
+            referenceName={imageMetadata.fileName || 'foto-acuan.jpg'}
+            params={correctionParams}
           />
 
           {/* Panel Keputusan Akhir Produk (FINAL PRODUCT DECISION - REQ-QC-002) */}
@@ -1301,7 +1333,7 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
         decision={productDecision}
         failReasons={productDecision === 'FAIL' ? productFailReasons : undefined}
         note={productDecision === 'FAIL' ? productFailNote : undefined}
-        correctionParams={correctionParams}
+        correctionParams={measurementCorrection ?? ZERO_CORRECTION}
         isCorrectedMeasurement={measurementCorrection !== null}
       />
     </div>
