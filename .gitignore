@@ -38,3 +38,4 @@ release-artifacts
 dist_release
 artifacts
 src-tauri/target_*
+tests/fixtures/raw/*.NEF
