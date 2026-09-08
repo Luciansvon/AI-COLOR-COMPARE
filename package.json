@@ -10,7 +10,9 @@
     "test": "tsx tests/run_tests.ts && tsx tests/non_destructive.test.ts && tsx tests/tauri_bridge.test.ts && tsx tests/measurement_guardrails.test.ts && tsx tests/evidence_copy_guardrails.test.ts && tsx tests/rgb_analysis.test.ts && tsx tests/operator_audit.test.tsx && tsx tests/correction_preview.test.ts && tsx tests/correction_flow.test.tsx && tsx tests/batch_export.test.ts && tsx tests/smooth_surface_and_color.test.ts",
     "test:browser": "node tests/test_browser.mjs",
     "desktop:dev": "tauri dev",
-    "desktop:build": "tauri build"
+    "desktop:build": "tauri build",
+    "tauri": "tauri",
+    "android:build": "tauri android build --apk --debug --target aarch64"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.11.1",
@@ -22,6 +24,7 @@
     "tailwind-merge": "^3.0.2"
   },
   "devDependencies": {
+    "@tauri-apps/cli": "^2.11.4",
     "@types/node": "^22.13.10",
     "@types/react": "^19.0.10",
     "@types/react-dom": "^19.0.4",
