@@ -257,10 +257,10 @@ export const QCReportModal: React.FC<QCReportModalProps> = ({
                     <td className="p-2.5 font-medium">Tekstur & Arah Serat Kayu</td>
                     <td className="p-2.5 font-mono">-</td>
                     <td className="p-2.5 font-mono">
-                      {primaryFusion ? `${(primaryFusion.textureSimilarityScore * 100).toFixed(0)}%` : '-'}
+                      {primaryFusion?.surfaceMode === 'smooth' ? 'Permukaan halus' : primaryFusion ? `${(primaryFusion.textureSimilarityScore * 100).toFixed(0)}%` : '-'}
                     </td>
                     <td className="p-2.5 font-mono font-bold">
-                      {primaryFusion ? `${primaryFusion.grainAngleDiffDeg}°` : '-'}
+                      {primaryFusion?.surfaceMode === 'smooth' ? 'Tidak berlaku' : primaryFusion ? `${primaryFusion.grainAngleDiffDeg}°` : '-'}
                     </td>
                     <td className="p-2.5">
                       <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-gray-100 border border-gray-300">

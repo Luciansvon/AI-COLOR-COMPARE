@@ -37,6 +37,12 @@ export function applyCorrectionToRgb(
   g += tempShift * 0.2 - tintShift * 0.5;
   b -= tempShift;
 
+  // Tint positif berarti magenta: merah dan biru naik relatif terhadap hijau.
+  // Tint negatif berarti hijau. Sebelumnya hanya kanal hijau yang digeser,
+  // sehingga warna hasil dapat kehilangan keseimbangan meski arah slider benar.
+  r += tintShift * 0.25;
+  b += tintShift * 0.25;
+
   const gray = 0.299 * r + 0.587 * g + 0.114 * b;
   r = gray + (r - gray) * satMultiplier;
   g = gray + (g - gray) * satMultiplier;

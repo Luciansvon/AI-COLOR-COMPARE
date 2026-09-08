@@ -159,6 +159,42 @@ export function calculateGrainAngleDiff(angle1: number, angle2: number): number 
 }
 
 /**
+ * Mengukur kekuatan pola permukaan. LBP tidak stabil pada citra yang hampir
+ * rata karena noise kamera kecil dapat berubah menjadi pola biner yang berbeda.
+ */
+export function calculateTextureStrength(
+  gray: Uint8Array,
+  width: number,
+  height: number
+): { meanGradient: number; strongEdgeRatio: number; isSmooth: boolean } {
+  if (width < 3 || height < 3) {
+    return { meanGradient: 0, strongEdgeRatio: 0, isSmooth: true };
+  }
+
+  let gradientSum = 0;
+  let strongEdges = 0;
+  let count = 0;
+  for (let y = 1; y < height - 1; y++) {
+    for (let x = 1; x < width - 1; x++) {
+      const gx = gray[y * width + x + 1] - gray[y * width + x - 1];
+      const gy = gray[(y + 1) * width + x] - gray[(y - 1) * width + x];
+      const magnitude = Math.sqrt(gx * gx + gy * gy);
+      gradientSum += magnitude;
+      if (magnitude >= 18) strongEdges++;
+      count++;
+    }
+  }
+
+  const meanGradient = gradientSum / Math.max(1, count);
+  const strongEdgeRatio = strongEdges / Math.max(1, count);
+  return {
+    meanGradient,
+    strongEdgeRatio,
+    isSmooth: meanGradient < 7 && strongEdgeRatio < 0.025,
+  };
+}
+
+/**
  * Penggabungan Bukti (Evidence Fusion): Warna + Serat Kayu
  */
 export function evaluateMaterialFusion(
@@ -177,19 +213,29 @@ export function evaluateMaterialFusion(
   const masterLbp = calculateLBPHistogram(masterGray, masterWidth, masterHeight);
   const prodLbp = calculateLBPHistogram(prodGray, productWidth, productHeight);
 
-  const textureSim = compareLBPSimilarity(masterLbp, prodLbp);
+  let textureSim = compareLBPSimilarity(masterLbp, prodLbp);
+  const masterStrength = calculateTextureStrength(masterGray, masterWidth, masterHeight);
+  const productStrength = calculateTextureStrength(prodGray, productWidth, productHeight);
+  const bothSmooth = masterStrength.isSmooth && productStrength.isSmooth;
+  const oneSmooth = masterStrength.isSmooth !== productStrength.isSmooth;
+  const surfaceMode: 'smooth' | 'textured' | 'mixed' = bothSmooth ? 'smooth' : oneSmooth ? 'mixed' : 'textured';
 
   const masterGrain = calculateGrainDirection(masterGray, masterWidth, masterHeight);
   const prodGrain = calculateGrainDirection(prodGray, productWidth, productHeight);
 
-  const grainDiff = calculateGrainAngleDiff(masterGrain.dominantAngle, prodGrain.dominantAngle);
-  const isGrainMatching = textureSim >= 0.82 && (!masterGrain.isDirectional || grainDiff <= 35);
+  let grainDiff = calculateGrainAngleDiff(masterGrain.dominantAngle, prodGrain.dominantAngle);
+  if (bothSmooth) {
+    textureSim = 1;
+    grainDiff = 0;
+  }
+  const isGrainMatching = bothSmooth || (!oneSmooth && textureSim >= 0.82 &&
+    (!masterGrain.isDirectional || !prodGrain.isDirectional || grainDiff <= 35));
   const isColorMatching = colorMeasured.deltaE00 <= 2.2;
   const rgbBalance = analyzeRgbBalance(colorMeasured);
 
   // Analisis Patch Anomaly AnomalyDINO / PatchCore
   let patchResult;
-  if (masterWidth >= 16 && masterHeight >= 16 && productWidth >= 16 && productHeight >= 16) {
+  if (!bothSmooth && masterWidth >= 16 && masterHeight >= 16 && productWidth >= 16 && productHeight >= 16) {
     const bank = masterBank || buildMasterMemoryBank('MASTER_CURRENT', masterGray, masterWidth, masterHeight, 16, 8);
     patchResult = detectPatchAnomalies(prodGray, productWidth, productHeight, bank, 16, 16);
   }
@@ -198,6 +244,7 @@ export function evaluateMaterialFusion(
     textureSimilarityScore: Number(textureSim.toFixed(2)),
     grainAngleDiffDeg: Math.round(grainDiff),
     isGrainMatching,
+    surfaceMode,
     patchAnomaly: patchResult,
   };
   if (colorMeasured.clippingWarning?.highlightClipped || colorMeasured.clippingWarning?.shadowClipped) {
@@ -215,9 +262,11 @@ export function evaluateMaterialFusion(
   if (isColorMatching && isGrainMatching) {
     return {
       diagnosisType: 'Conforming',
-      title: 'Warna dan Serat Mendekati Master',
+      title: bothSmooth ? 'Warna dan Permukaan Halus Mendekati Master' : 'Warna dan Serat Mendekati Master',
       primaryCause: 'Kemiripan Foto Terukur',
-      humanExplanation: 'Warna dan tekstur foto mendekati master menurut ambang internal aplikasi. Periksa juga permukaan fisik dan toleransi proyek.',
+      humanExplanation: bothSmooth
+        ? 'Warna mendekati master dan kedua area terukur sebagai permukaan halus tanpa pola serat yang cukup untuk dibandingkan. Periksa juga permukaan fisik dan toleransi proyek.'
+        : 'Warna dan tekstur foto mendekati master menurut ambang internal aplikasi. Periksa juga permukaan fisik dan toleransi proyek.',
       studioAction:
         rgbBalance.available && rgbBalance.bias !== 'balanced'
           ? `Untuk mencoba menyamakan arah warna: ${rgbBalance.cameraAction} Keputusan PASS/FAIL tetap milik operator.`
@@ -226,6 +275,7 @@ export function evaluateMaterialFusion(
       textureSimilarityScore: Number(textureSim.toFixed(2)),
       grainAngleDiffDeg: Math.round(grainDiff),
       isGrainMatching: true,
+      surfaceMode,
       patchAnomaly: patchResult,
     };
   } else if (!isColorMatching && isGrainMatching) {
@@ -238,9 +288,11 @@ export function evaluateMaterialFusion(
 
     return {
       diagnosisType: 'IlluminationArtifact',
-      title: 'Warna Bergeser, Tekstur Mendekati Master',
+      title: bothSmooth ? 'Warna Bergeser, Permukaan Sama-sama Halus' : 'Warna Bergeser, Tekstur Mendekati Master',
       primaryCause: cause,
-      humanExplanation: `Skor kemiripan tekstur foto ${(textureSim * 100).toFixed(0)}%, tetapi warna bergeser. Skor ini belum membuktikan bahan sama atau memastikan penyebabnya adalah lampu.`,
+      humanExplanation: bothSmooth
+        ? 'Kedua area sama-sama halus tanpa pola serat yang cukup untuk dibandingkan, tetapi warnanya bergeser. Kehalusan ini belum membuktikan bahan sama atau memastikan penyebabnya adalah lampu.'
+        : `Skor kemiripan tekstur foto ${(textureSim * 100).toFixed(0)}%, tetapi warna bergeser. Skor ini belum membuktikan bahan sama atau memastikan penyebabnya adalah lampu.`,
       studioAction: rgbBalance.available
         ? `Periksa lampu dan referensi netral terlebih dahulu. ${rgbBalance.cameraAction}`
         : 'Periksa lampu, eksposur, dan White Balance kamera; foto ulang terhadap master sebelum menyimpulkan bahan berbeda.',
@@ -248,6 +300,7 @@ export function evaluateMaterialFusion(
       textureSimilarityScore: Number(textureSim.toFixed(2)),
       grainAngleDiffDeg: Math.round(grainDiff),
       isGrainMatching: true,
+      surfaceMode,
       patchAnomaly: patchResult,
     };
   } else if (!isColorMatching && !isGrainMatching) {
@@ -261,6 +314,7 @@ export function evaluateMaterialFusion(
       textureSimilarityScore: Number(textureSim.toFixed(2)),
       grainAngleDiffDeg: Math.round(grainDiff),
       isGrainMatching: false,
+      surfaceMode,
       patchAnomaly: patchResult,
     };
   } else {
@@ -274,6 +328,7 @@ export function evaluateMaterialFusion(
       textureSimilarityScore: Number(textureSim.toFixed(2)),
       grainAngleDiffDeg: Math.round(grainDiff),
       isGrainMatching: false,
+      surfaceMode,
       patchAnomaly: patchResult,
     };
   }

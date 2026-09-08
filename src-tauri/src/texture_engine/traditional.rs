@@ -16,6 +16,39 @@ pub struct TraditionalTextureReport {
     pub lbp_histogram: Vec<f64>,
     pub glcm: GlcmFeatures,
     pub average_roughness: f64,
+    pub mean_gradient: f64,
+    pub strong_edge_ratio: f64,
+    pub is_smooth: bool,
+}
+
+/// Mengukur kekuatan pola nyata agar noise kamera pada permukaan polos tidak
+/// diperlakukan sebagai serat. Ambang disamakan dengan engine TypeScript aktif.
+pub fn calculate_texture_strength(gray: &[u8], width: usize, height: usize) -> (f64, f64, bool) {
+    if width < 3 || height < 3 || gray.len() < width * height {
+        return (0.0, 0.0, true);
+    }
+
+    let mut gradient_sum = 0.0;
+    let mut strong_edges = 0usize;
+    let mut samples = 0usize;
+
+    for y in 1..height - 1 {
+        for x in 1..width - 1 {
+            let gx = gray[y * width + x + 1] as f64 - gray[y * width + x - 1] as f64;
+            let gy = gray[(y + 1) * width + x] as f64 - gray[(y - 1) * width + x] as f64;
+            let magnitude = (gx * gx + gy * gy).sqrt();
+            gradient_sum += magnitude;
+            if magnitude >= 18.0 {
+                strong_edges += 1;
+            }
+            samples += 1;
+        }
+    }
+
+    let mean_gradient = gradient_sum / samples.max(1) as f64;
+    let strong_edge_ratio = strong_edges as f64 / samples.max(1) as f64;
+    let is_smooth = mean_gradient < 7.0 && strong_edge_ratio < 0.025;
+    (mean_gradient, strong_edge_ratio, is_smooth)
 }
 
 /// Mengubah buffer RGBA menjadi citra derajat keabuan (grayscale 8-bit)
@@ -160,6 +193,7 @@ pub fn extract_traditional_texture(rgba: &[u8], width: usize, height: usize) -> 
     let gray = rgba_to_grayscale(rgba, width, height);
     let lbp_histogram = calculate_lbp_histogram(&gray, width, height);
     let glcm = calculate_glcm_features(&gray, width, height);
+    let (mean_gradient, strong_edge_ratio, is_smooth) = calculate_texture_strength(&gray, width, height);
 
     // Kekasaran permukaan didekati dari rata-rata kontras dan dissimilarity
     let average_roughness = ((glcm.contrast + glcm.dissimilarity * 2.0) / 3.0).clamp(0.0, 100.0);
@@ -168,6 +202,9 @@ pub fn extract_traditional_texture(rgba: &[u8], width: usize, height: usize) -> 
         lbp_histogram,
         glcm,
         average_roughness,
+        mean_gradient,
+        strong_edge_ratio,
+        is_smooth,
     }
 }
 
@@ -231,5 +268,25 @@ mod tests {
         let sim = compare_lbp_similarity(&report1.lbp_histogram, &report2.lbp_histogram);
         println!("Kemiripan LBP beda pencahayaan: {}", sim);
         assert!(sim > 0.95, "LBP harus tetap mendekati 1.0 meskipun pencahayaan lampu studio berbeda (Illumination Invariance)");
+    }
+
+    #[test]
+    fn test_smooth_surface_ignores_minor_camera_noise() {
+        let width = 32;
+        let height = 32;
+        let mut image = vec![0u8; width * height * 4];
+        for y in 0..height {
+            for x in 0..width {
+                let value = 128i16 + ((x * 7 + y * 11) % 5) as i16 - 2;
+                let idx = (y * width + x) * 4;
+                image[idx] = value as u8;
+                image[idx + 1] = value as u8;
+                image[idx + 2] = value as u8;
+                image[idx + 3] = 255;
+            }
+        }
+
+        let report = extract_traditional_texture(&image, width, height);
+        assert!(report.is_smooth, "Noise kecil pada permukaan polos harus tetap diklasifikasikan halus");
     }
 }

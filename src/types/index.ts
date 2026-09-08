@@ -72,6 +72,7 @@ export type UnifiedMaterialReport = {
   textureSimilarityScore: number;
   grainAngleDiffDeg: number;
   isGrainMatching: boolean;
+  surfaceMode?: 'smooth' | 'textured' | 'mixed';
   patchAnomaly?: {
     anomalyScore: number;
     isAnomalous: boolean;

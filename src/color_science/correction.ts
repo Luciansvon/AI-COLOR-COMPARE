@@ -1,6 +1,9 @@
 // Mesin Rekomendasi Koreksi & Pendeteksi Konflik Antar-Area (ROI)
 
 import { ROIItem, MeasuredEvidence, CorrectionParams, CorrectionConflict } from '../types';
+import { applyCorrectionToRgb } from './imageCorrection';
+import { rgbToLab } from './transforms';
+import { calculateDeltaE00 } from './ciede2000';
 
 export const ZERO_CORRECTION: CorrectionParams = {
   temperatureK: 0, tint: 0, exposureEV: 0, brightness: 0, contrast: 0, saturation: 0,
@@ -11,6 +14,90 @@ const clamp = (value: number, limit: number) => Math.max(-limit, Math.min(limit,
 export interface ROIAnalysisPair {
   roi: ROIItem;
   measured?: MeasuredEvidence;
+}
+
+type RgbEvidencePair = { master: { r: number; g: number; b: number }; product: { r: number; g: number; b: number } };
+
+function reliableRgbEvidence(measured: MeasuredEvidence): RgbEvidencePair | null {
+  const master = measured.masterRgb;
+  const product = measured.productRgb;
+  if (!master || !product || ![master.r, master.g, master.b, product.r, product.g, product.b].every(Number.isFinite)) return null;
+
+  // Mean Lab dan Lab dari mean RGB tidak identik pada permukaan berpola, tetapi
+  // arahnya harus tetap cukup dekat. Data sintetis/tidak lengkap memakai fallback lama.
+  const masterLab = rgbToLab(master);
+  const productLab = rgbToLab(product);
+  const consistent = Math.abs((productLab.l - masterLab.l) - measured.deltaL) <= 6 &&
+    Math.abs((productLab.a - masterLab.a) - measured.deltaA) <= 6 &&
+    Math.abs((productLab.b - masterLab.b) - measured.deltaB) <= 6;
+  return consistent ? { master, product } : null;
+}
+
+function correctionError(evidence: RgbEvidencePair[], params: CorrectionParams): number {
+  return evidence.reduce((sum, pair) => {
+    const corrected = applyCorrectionToRgb(pair.product.r, pair.product.g, pair.product.b, params);
+    return sum + calculateDeltaE00(rgbToLab(pair.master), rgbToLab(corrected));
+  }, 0) / evidence.length;
+}
+
+/**
+ * Memeriksa kembali hasil saran melalui transformasi piksel yang benar-benar
+ * dipakai preview/ekspor. Saran hanya digeser jika skor warna rata-rata membaik.
+ */
+export function refineCorrectionAgainstMeasuredRgb(
+  pairs: ROIAnalysisPair[],
+  initial: CorrectionParams,
+  exposureBounds: { min: number; max: number } = { min: -1.5, max: 1.5 }
+): CorrectionParams {
+  const evidence = pairs.map((pair) => pair.measured && reliableRgbEvidence(pair.measured)).filter(Boolean) as RgbEvidencePair[];
+  if (evidence.length === 0) return initial;
+
+  const bounds = {
+    temperatureK: { min: -800, max: 800 },
+    tint: { min: -100, max: 100 },
+    exposureEV: exposureBounds,
+    saturation: { min: -50, max: 50 },
+  };
+  const steps = {
+    temperatureK: [400, 200, 100, 50, 25, 10],
+    tint: [50, 25, 10, 5, 2, 1],
+    exposureEV: [0.5, 0.25, 0.1, 0.05, 0.02, 0.01],
+    saturation: [25, 10, 5, 2, 1, 1],
+  } as const;
+  const fields = Object.keys(steps) as (keyof typeof steps)[];
+  const zero = { ...ZERO_CORRECTION };
+  let best = { ...initial, brightness: 0, contrast: 0 };
+  let bestError = correctionError(evidence, best);
+  const zeroError = correctionError(evidence, zero);
+  if (zeroError < bestError) {
+    best = zero;
+    bestError = zeroError;
+  }
+
+  for (let round = 0; round < 6; round++) {
+    for (const field of fields) {
+      for (const direction of [-1, 1]) {
+        const bound = bounds[field];
+        const raw = best[field] + direction * steps[field][round];
+        const value = Math.max(bound.min, Math.min(bound.max, raw));
+        const candidate = { ...best, [field]: value };
+        const error = correctionError(evidence, candidate);
+        if (error + 1e-6 < bestError) {
+          best = candidate;
+          bestError = error;
+        }
+      }
+    }
+  }
+
+  return {
+    temperatureK: Math.round(best.temperatureK),
+    tint: Math.round(best.tint),
+    exposureEV: Number(best.exposureEV.toFixed(2)),
+    brightness: 0,
+    contrast: 0,
+    saturation: Math.round(best.saturation),
+  };
 }
 
 /**
@@ -136,6 +223,8 @@ export function calculateRecommendedCorrection(pairs: ROIAnalysisPair[]): {
 
   // 4. Periksa Guardrail untuk No-Master ROI (REQ-NOMASTER-002, REQ-NOMASTER-003)
   let safeAvgExp = avgExp;
+  let minimumSafeExp = -1.5;
+  let maximumSafeExp = 1.5;
   const noMasterPairs = pairs.filter((p) => p.roi.role === 'guardrail_only' && p.measured);
   for (const nm of noMasterPairs) {
     const m = nm.measured!;
@@ -146,24 +235,33 @@ export function calculateRecommendedCorrection(pairs: ROIAnalysisPair[]): {
       if (safeAvgExp > maxAllowedExp) {
         safeAvgExp = maxAllowedExp;
       }
+      maximumSafeExp = Math.min(maximumSafeExp, maxAllowedExp);
     } else if (m.productBrightness + safeAvgExp * 25 < 5) {
       // Batasi penurunan eksposur agar guardrail tidak terlalu gelap / crushed (<5)
       const minAllowedExp = Math.min(2, Number(((5 - m.productBrightness) / 25).toFixed(2)));
       if (safeAvgExp < minAllowedExp) {
         safeAvgExp = minAllowedExp;
       }
+      minimumSafeExp = Math.max(minimumSafeExp, minAllowedExp);
     }
   }
 
+  const initialRecommendation: CorrectionParams = {
+    temperatureK: hasConflict ? 0 : clamp(avgTemp, 800),
+    tint: hasConflict ? 0 : clamp(avgTint, 100),
+    exposureEV: hasConflict ? 0 : clamp(safeAvgExp, 1.5),
+    brightness: 0,
+    contrast: 0,
+    saturation: hasConflict ? 0 : clamp(avgSat, 50),
+  };
+  const recommended = hasConflict ? initialRecommendation : refineCorrectionAgainstMeasuredRgb(
+    masterBackedPairs,
+    initialRecommendation,
+    { min: minimumSafeExp, max: maximumSafeExp }
+  );
+
   return {
-    recommended: {
-      temperatureK: hasConflict ? 0 : clamp(avgTemp, 800),
-      tint: hasConflict ? 0 : clamp(avgTint, 100),
-      exposureEV: hasConflict ? 0 : clamp(safeAvgExp, 1.5),
-      brightness: 0,
-      contrast: 0,
-      saturation: hasConflict ? 0 : clamp(avgSat, 50),
-    },
+    recommended,
     conflict: {
       hasConflict,
       details: conflictDetails,

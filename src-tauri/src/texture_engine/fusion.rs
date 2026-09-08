@@ -25,6 +25,7 @@ pub struct UnifiedMaterialReport {
     pub texture_similarity_score: f64, // 0.0 s/d 1.0 (LBP & GLCM)
     pub grain_angle_diff_deg: f64,
     pub is_grain_matching: bool,
+    pub surface_mode: String,
 }
 
 /// Menggabungkan bukti pengukuran warna (P0) dan tekstur (P1) menjadi diagnosa tunggal yang komprehensif
@@ -42,18 +43,30 @@ pub fn evaluate_material_fusion(
     let roughness_diff = (master_texture.average_roughness - product_texture.average_roughness).abs();
     let roughness_penalty = (roughness_diff / 50.0).clamp(0.0, 0.25);
 
-    // Skor kemiripan tekstur total (0.0 - 1.0)
-    let texture_similarity_score = (lbp_sim - roughness_penalty).clamp(0.0, 1.0);
+    let both_smooth = master_texture.is_smooth && product_texture.is_smooth;
+    let one_smooth = master_texture.is_smooth != product_texture.is_smooth;
+    let surface_mode = if both_smooth { "smooth" } else if one_smooth { "mixed" } else { "textured" };
+
+    // LBP tidak stabil pada bidang tanpa pola. Dua bidang halus dibandingkan
+    // sebagai kelas permukaan yang sama, bukan dari noise pikselnya.
+    let texture_similarity_score = if both_smooth {
+        1.0
+    } else {
+        (lbp_sim - roughness_penalty).clamp(0.0, 1.0)
+    };
 
     // 3. Selisih arah urat kayu
-    let grain_angle_diff_deg = calculate_grain_angle_difference(
+    let measured_grain_angle_diff = calculate_grain_angle_difference(
         master_grain.dominant_angle_deg,
         product_grain.dominant_angle_deg,
     );
+    let grain_angle_diff_deg = if both_smooth { 0.0 } else { measured_grain_angle_diff };
 
     // Toleransi: Serat dianggap cocok jika skor tekstur >= 0.82
     let is_texture_matching = texture_similarity_score >= 0.82;
-    let is_grain_matching = is_texture_matching && (!master_grain.is_directional || grain_angle_diff_deg <= 35.0);
+    let is_grain_matching = both_smooth || (!one_smooth
+        && is_texture_matching
+        && (!master_grain.is_directional || !product_grain.is_directional || grain_angle_diff_deg <= 35.0));
 
     // Evaluasi warna (CIEDE2000 batas toleransi studio 2.5)
     let is_color_matching = color_measured.delta_e00 <= 2.5;
@@ -70,6 +83,7 @@ pub fn evaluate_material_fusion(
             texture_similarity_score,
             grain_angle_diff_deg,
             is_grain_matching: true,
+            surface_mode: surface_mode.to_string(),
         }
     } else if !is_color_matching && is_grain_matching {
         // KASUS UTAMA STUDIO: Serat kayu identik, warna beda -> Masalah Lampu/Kamera
@@ -94,6 +108,7 @@ pub fn evaluate_material_fusion(
             texture_similarity_score,
             grain_angle_diff_deg,
             is_grain_matching: true,
+            surface_mode: surface_mode.to_string(),
         }
     } else if !is_color_matching && !is_grain_matching {
         // KASUS CACAT FISIK: Warna beda dan serat juga beda -> Bahan / Finishing Salah
@@ -107,6 +122,7 @@ pub fn evaluate_material_fusion(
             texture_similarity_score,
             grain_angle_diff_deg,
             is_grain_matching: false,
+            surface_mode: surface_mode.to_string(),
         }
     } else {
         // KASUS SPESIES BEDA: Warna mirip tapi serat beda
@@ -120,6 +136,7 @@ pub fn evaluate_material_fusion(
             texture_similarity_score,
             grain_angle_diff_deg,
             is_grain_matching: false,
+            surface_mode: surface_mode.to_string(),
         }
     }
 }
@@ -156,6 +173,9 @@ mod tests {
                 dissimilarity: 0.8,
             },
             average_roughness: 1.0,
+            mean_gradient: 12.0,
+            strong_edge_ratio: 0.2,
+            is_smooth: false,
         };
         let prod_tex = master_tex.clone();
 
@@ -170,5 +190,50 @@ mod tests {
 
         assert_eq!(report.diagnosis_type, MaterialDiagnosisType::IlluminationArtifact);
         assert!(report.human_explanation.contains("identik"));
+    }
+
+    #[test]
+    fn test_smooth_surfaces_do_not_use_grain_noise() {
+        let color = MeasuredEvidence {
+            delta_e00: 4.2,
+            delta_l: 2.1,
+            delta_a: 1.0,
+            delta_b: 4.0,
+            master_brightness: 30.0,
+            product_brightness: 32.0,
+            brightness_diff_percent: 6.0,
+            contrast_diff_percent: 2.0,
+            saturation_diff_percent: 8.0,
+            shadow_clipped: false,
+            highlight_clipped: false,
+        };
+        let smooth = TraditionalTextureReport {
+            lbp_histogram: vec![0.0; 256],
+            glcm: super::super::traditional::GlcmFeatures {
+                contrast: 0.0,
+                homogeneity: 1.0,
+                energy: 1.0,
+                dissimilarity: 0.0,
+            },
+            average_roughness: 0.0,
+            mean_gradient: 1.0,
+            strong_edge_ratio: 0.0,
+            is_smooth: true,
+        };
+        let master_grain = GrainDirectionReport {
+            dominant_angle_deg: 0.0,
+            grain_coherence: 0.0,
+            is_directional: false,
+        };
+        let product_grain = GrainDirectionReport {
+            dominant_angle_deg: 90.0,
+            grain_coherence: 0.0,
+            is_directional: false,
+        };
+
+        let report = evaluate_material_fusion(&color, &smooth, &smooth, &master_grain, &product_grain);
+        assert_eq!(report.diagnosis_type, MaterialDiagnosisType::IlluminationArtifact);
+        assert_eq!(report.surface_mode, "smooth");
+        assert!(report.is_grain_matching);
     }
 }

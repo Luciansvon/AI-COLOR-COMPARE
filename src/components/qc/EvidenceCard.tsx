@@ -368,7 +368,11 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
                         : 'bg-rose-500/15 text-rose-300 border-rose-500/30'
                     }`}
                   >
-                    {!unifiedFusion ? 'Belum Diukur' : unifiedFusion.isGrainMatching ? 'Serat Cocok' : 'Beda Serat'}
+                    {!unifiedFusion
+                      ? 'Belum Diukur'
+                      : unifiedFusion.surfaceMode === 'smooth'
+                        ? 'Permukaan Halus'
+                        : unifiedFusion.isGrainMatching ? 'Serat Cocok' : 'Beda Serat'}
                   </span>
                 </div>
 
@@ -377,7 +381,9 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
                   <span className="text-[10px] text-studio-500 block">Kemiripan Pori & Urat</span>
                   <div className="flex items-center justify-center gap-1.5">
                     <span className={`text-base font-bold font-mono ${unifiedFusion ? 'text-emerald-400' : 'text-studio-400'}`}>
-                      {unifiedFusion ? `${(unifiedFusion.textureSimilarityScore * 100).toFixed(0)}%` : '—'}
+                      {unifiedFusion?.surfaceMode === 'smooth'
+                        ? 'HALUS'
+                        : unifiedFusion ? `${(unifiedFusion.textureSimilarityScore * 100).toFixed(0)}%` : '—'}
                     </span>
                     <span className="text-xs text-studio-400 font-medium">{unifiedFusion ? 'Terukur' : 'Belum diukur'}</span>
                   </div>
@@ -388,7 +394,9 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
               <div className="pt-2 border-t border-studio-800/60 flex items-center justify-between text-[11px]">
                 <span className="text-studio-400">Arah Alur Kayu:</span>
                 <span className="font-bold font-mono text-studio-200">
-                  {unifiedFusion ? `${unifiedFusion.grainAngleDiffDeg}° (${unifiedFusion.grainAngleDiffDeg <= 20 ? 'Searah' : 'Miring'})` : 'Belum diukur'}
+                  {unifiedFusion?.surfaceMode === 'smooth'
+                    ? 'Tidak ada serat dominan'
+                    : unifiedFusion ? `${unifiedFusion.grainAngleDiffDeg}° (${unifiedFusion.grainAngleDiffDeg <= 20 ? 'Searah' : 'Miring'})` : 'Belum diukur'}
                 </span>
               </div>
             </div>
@@ -545,12 +553,16 @@ export const EvidenceCard: React.FC<EvidenceCardProps> = ({
               {unifiedFusion && (
                 <div className="pt-2 border-t border-studio-800/60 grid grid-cols-2 gap-2 text-xs">
                   <div>
-                    <span className="text-studio-500 block">Kemiripan Tekstur LBP:</span>
-                    <span className="font-semibold text-emerald-300">{(unifiedFusion.textureSimilarityScore * 100).toFixed(1)}%</span>
+                    <span className="text-studio-500 block">{unifiedFusion.surfaceMode === 'smooth' ? 'Jenis Permukaan:' : 'Kemiripan Tekstur LBP:'}</span>
+                    <span className="font-semibold text-emerald-300">
+                      {unifiedFusion.surfaceMode === 'smooth' ? 'Halus / tanpa serat dominan' : `${(unifiedFusion.textureSimilarityScore * 100).toFixed(1)}%`}
+                    </span>
                   </div>
                   <div>
-                    <span className="text-studio-500 block">Kemiringan Sudut Serat:</span>
-                    <span className="font-semibold text-studio-200">{unifiedFusion.grainAngleDiffDeg}° ({unifiedFusion.grainAngleDiffDeg <= 20 ? 'Searah' : 'Menyimpang'})</span>
+                    <span className="text-studio-500 block">{unifiedFusion.surfaceMode === 'smooth' ? 'Arah Serat:' : 'Kemiringan Sudut Serat:'}</span>
+                    <span className="font-semibold text-studio-200">
+                      {unifiedFusion.surfaceMode === 'smooth' ? 'Tidak berlaku' : `${unifiedFusion.grainAngleDiffDeg}° (${unifiedFusion.grainAngleDiffDeg <= 20 ? 'Searah' : 'Menyimpang'})`}
+                    </span>
                   </div>
                 </div>
               )}
