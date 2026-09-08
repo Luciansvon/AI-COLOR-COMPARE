@@ -50,8 +50,10 @@
   - **Pembaruan Installer Versi Baru (v0.3.3 - Terkini)**: Pengguna (Bima) beralih ke paket installer setup `Studio-Color-QC-v0.3.3-Windows-x64-Setup.exe` (267 MB di folder Downloads). Aplikasi versi lama yang sedang berjalan dan pintasan di layar Desktop telah dibersihkan tuntas sehingga siap diinstall tanpa konflik file lock, sementara basis data lokal (database SQLite riwayat & master) tetap dijaga aman.
 - **Kepekaan Terhadap Arah Warna Operator (RGB Shift - Canon EOS 80D)**: Operator studio sering bingung apakah kayu di foto terlalu kemerahan, kehijauan, atau kebiruan akibat pencahayaan kamera studio. Bima menginginkan panduan arah warna yang langsung memberi petunjuk praktis (misal: "Cenderung Kemerahan", coba 1 langkah ke Green/Amber pada menu WB kamera) tanpa istilah kalibrasi palsu.
 - **Konsistensi Logika Angka Perbandingan**: Bima sangat jeli terhadap kejanggalan angka di antarmuka (contoh: kecerahan Master 20 vs Produk 30 harus konsisten ditulis +10 poin selisihnya, bukan angka persen membingungkan seperti 15%). Angka di kartu layar dan lembar laporan cetak wajib selaras 100%.
-- **Alur Pengecekan Sebelum Rilis**: Bima terbiasa membagikan log percakapan sebelumnya dan selalu meminta pengecekan menyeluruh ("cek dulu") terhadap hasil merge dan status pengujian sebelum installer/rilis dipublikasikan.
-- **Rilis Resmi GitHub (v0.3.5 - Terkini)**: Telah dipublikasikan secara resmi di `https://github.com/Luciansvon/AI-COLOR-COMPARE/releases/tag/v0.3.5` lengkap dengan berkas installer setup Windows `Studio-Color-QC-v0.3.5-Windows-x64-Setup.exe` (267.28 MB) setelah seluruh pengujian dan tes upgrade-in-place dari v0.3.4 ke v0.3.5 lulus 100%.
+- **Audit Rilis Versi v0.3.8 (PR #10 - Selesai Digabung)**: Audit menyeluruh mencatat build installer sukses, namun ditemukan catatan penting (kayu berserat halus rawan terbaca permukaan halus/tanpa serat), sehingga disarankan perbaikan akurasi serat sebelum dipakai produksi studio.
+- **Riset Versi Android (PR #11 - Sedang Aktif/Open)**: Dokumen riset arsitektur 149 sumber untuk rencana masa depan aplikasi di perangkat Android telah diajukan di PR #11 dengan status pengujian otomatis lolos 100%.
+- **Permintaan Pembangunan APK Android**: Bima meminta pembuatan berkas APK untuk Android berdasarkan riset PR #11. Rencana kerja bertahap telah disusun untuk memastikan aplikasi desktop Windows tetap aman 100% dan APK pilot dapat dibangun secara terkontrol.
+
 
 
 
