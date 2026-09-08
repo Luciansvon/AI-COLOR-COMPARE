@@ -1,0 +1,20 @@
+name: B.I.M.A Shared Infra Audit
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    uses: Luciansvon/B.I.M.A-DEV-INFRA/.github/workflows/repository-audit.yml@77432e1d990e576b6e964565c8dc9a248db42d69
+    with:
+      infra-ref: 77432e1d990e576b6e964565c8dc9a248db42d69
+      artifact-name: ai-color-compare-audit
