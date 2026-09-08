@@ -52,7 +52,7 @@
 - **Konsistensi Logika Angka Perbandingan**: Bima sangat jeli terhadap kejanggalan angka di antarmuka (contoh: kecerahan Master 20 vs Produk 30 harus konsisten ditulis +10 poin selisihnya, bukan angka persen membingungkan seperti 15%). Angka di kartu layar dan lembar laporan cetak wajib selaras 100%.
 - **Audit Rilis Versi v0.3.8 (PR #10 - Selesai Digabung)**: Audit menyeluruh mencatat build installer sukses, namun ditemukan catatan penting (kayu berserat halus rawan terbaca permukaan halus/tanpa serat), sehingga disarankan perbaikan akurasi serat sebelum dipakai produksi studio.
 - **Riset Versi Android (PR #11 - Sedang Aktif/Open)**: Dokumen riset arsitektur 149 sumber untuk rencana masa depan aplikasi di perangkat Android telah diajukan di PR #11 dengan status pengujian otomatis lolos 100%.
-- **Permintaan Pembangunan APK Android**: Bima meminta pembuatan berkas APK untuk Android berdasarkan riset PR #11. Rencana kerja bertahap telah disusun untuk memastikan aplikasi desktop Windows tetap aman 100% dan APK pilot dapat dibangun secara terkontrol.
+- **Permintaan Pembangunan APK Android & Uji Repo**: Bima meminta pembuatan berkas APK Android dan menanyakan apakah sudah diuji di repositori. Seluruh pengujian otomatis di repositori GitHub (`CI Studio Color QC` dan `Build Android Pilot APK`) serta pengujian lokal telah diverifikasi lulus 100%, sementara pengujian fisik di HP nyata diserahkan ke operator.
 
 
 
