@@ -680,9 +680,8 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-12">
       {/* Pilihan Mode Kerja: Mode Uji Foto Sendiri (Default) vs Mode Demo Simulasi */}
-      {/* Pilihan Mode Kerja: Mode Uji Foto Sendiri (Default) vs Mode Demo Simulasi */}
       <div className="bg-studio-900 border border-studio-800 rounded-2xl p-3 sm:p-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4 shadow-md">
-        <div className="grid grid-cols-2 gap-2 w-full sm:w-auto">
+        <div className="hidden sm:grid grid-cols-2 gap-2 w-full sm:w-auto">
           <button
             onClick={() => {
               setAppMode('upload');
@@ -726,9 +725,9 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
           </button>
         </div>
 
-        {/* Jika mode demo aktif, tampilkan 6 tombol skenario cepat */}
+        {/* Jika mode demo aktif (khusus desktop), tampilkan 6 tombol skenario cepat */}
         {appMode === 'demo' && (
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 no-scrollbar w-full sm:w-auto">
+          <div className="hidden sm:flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 no-scrollbar w-full sm:w-auto">
             <button
               onClick={() => loadScenario('scenario-match')}
               className={`px-2.5 py-1 rounded-lg text-xs font-medium transition shrink-0 ${
@@ -792,135 +791,58 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
           </div>
         )}
 
-        {/* Jika mode unggah aktif, tampilkan pilihan preset area kayu */}
-        {appMode === 'upload' && (
-          <div className="flex items-center gap-2 text-xs w-full sm:w-auto overflow-hidden">
-            <span className="text-studio-400 shrink-0 text-[11px] sm:text-xs">Area Uji:</span>
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 no-scrollbar w-full sm:w-auto">
-              <button
-                onClick={() => switchRoiPreset('center')}
-                className={`px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-medium transition shrink-0 ${
-                  roiPreset === 'center'
-                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
-                    : 'bg-studio-950 text-studio-400 hover:text-white border border-studio-800'
-                }`}
-              >
-                🎯 Area Tengah
-              </button>
-              <button
-                onClick={() => switchRoiPreset('multi')}
-                className={`px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-medium transition shrink-0 ${
-                  roiPreset === 'multi'
-                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
-                    : 'bg-studio-950 text-studio-400 hover:text-white border border-studio-800'
-                }`}
-              >
-                🪑 Multi-Area
-              </button>
-              <button
-                onClick={() => switchRoiPreset('full')}
-                className={`px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-medium transition shrink-0 ${
-                  roiPreset === 'full'
-                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
-                    : 'bg-studio-950 text-studio-400 hover:text-white border border-studio-800'
-                }`}
-              >
-                📐 Seluruh Permukaan
-              </button>
-              <button
-                onClick={() => switchRoiPreset('custom')}
-                className={`px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-medium transition shrink-0 flex items-center gap-1 ${
-                  roiPreset === 'custom'
-                    ? 'bg-amber-500 text-black font-bold shadow-md'
-                    : 'bg-studio-950 text-studio-400 hover:text-white border border-studio-800'
-                }`}
-              >
-                <span>✏️ Area Bebas</span>
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Bilah Alur Kerja 3 Langkah Studio (Studio Workflow Stepper) */}
-      <div className="bg-studio-900/90 border border-studio-800 rounded-2xl p-2.5 sm:p-4 shadow-lg">
-        {/* Mobile Compact Stepper (< md) */}
-        <div className="grid grid-cols-3 gap-1.5 md:hidden">
-          {/* Langkah 1 */}
-          <div
-            className={`flex items-center gap-1.5 p-1.5 rounded-lg border text-[10px] font-semibold transition-all ${
-              masterImageSrc && productImageSrc
-                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
-                : 'bg-studio-950/60 border-amber-500/40 text-amber-300'
-            }`}
-          >
-            <div
-              className={`w-5 h-5 rounded-full flex items-center justify-center font-bold text-[10px] shrink-0 ${
-                masterImageSrc && productImageSrc
-                  ? 'bg-emerald-500 text-black'
-                  : 'bg-amber-500 text-black'
+        {/* Pilihan preset area kayu */}
+        <div className="flex items-center gap-2 text-xs w-full sm:w-auto overflow-hidden">
+          <span className="text-studio-400 shrink-0 text-[11px] sm:text-xs font-semibold">Area Uji:</span>
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 no-scrollbar w-full sm:w-auto">
+            <button
+              onClick={() => switchRoiPreset('center')}
+              className={`px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-medium transition shrink-0 ${
+                roiPreset === 'center'
+                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                  : 'bg-studio-950 text-studio-400 hover:text-white border border-studio-800'
               }`}
             >
-              {masterImageSrc && productImageSrc ? '✓' : '1'}
-            </div>
-            <span className="truncate">1. Dua Foto</span>
-          </div>
-
-          {/* Langkah 2 */}
-          <div
-            className={`flex items-center gap-1.5 p-1.5 rounded-lg border text-[10px] font-semibold transition-all ${
-              comparisonStatus === 'completed'
-                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
-                : comparisonStatus === 'ready'
-                ? 'bg-amber-500/20 border-amber-500/50 text-amber-200 animate-pulse'
-                : comparisonStatus === 'analyzing'
-                ? 'bg-sky-500/10 border-sky-500/30 text-sky-300'
-                : 'bg-studio-950/40 border-studio-800 text-studio-500'
-            }`}
-          >
-            <div
-              className={`w-5 h-5 rounded-full flex items-center justify-center font-bold text-[10px] shrink-0 ${
-                comparisonStatus === 'completed'
-                  ? 'bg-emerald-500 text-black'
-                  : comparisonStatus === 'ready'
-                  ? 'bg-amber-500 text-black'
-                  : 'bg-studio-800 text-studio-400'
+              🎯 Area Tengah
+            </button>
+            <button
+              onClick={() => switchRoiPreset('multi')}
+              className={`px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-medium transition shrink-0 ${
+                roiPreset === 'multi'
+                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                  : 'bg-studio-950 text-studio-400 hover:text-white border border-studio-800'
               }`}
             >
-              {comparisonStatus === 'completed' ? '✓' : '2'}
-            </div>
-            <span className="truncate">2. Bandingkan</span>
-          </div>
-
-          {/* Langkah 3 */}
-          <div
-            className={`flex items-center gap-1.5 p-1.5 rounded-lg border text-[10px] font-semibold transition-all ${
-              productDecision
-                ? productDecision === 'PASS'
-                  ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300'
-                  : 'bg-rose-500/20 border-rose-500/40 text-rose-300'
-                : comparisonStatus === 'completed'
-                ? 'bg-amber-500/10 border-amber-500/30 text-amber-300'
-                : 'bg-studio-950/40 border-studio-800 text-studio-500'
-            }`}
-          >
-            <div
-              className={`w-5 h-5 rounded-full flex items-center justify-center font-bold text-[10px] shrink-0 ${
-                productDecision
-                  ? productDecision === 'PASS'
-                    ? 'bg-emerald-500 text-black'
-                    : 'bg-rose-500 text-white'
-                  : 'bg-studio-800 text-studio-400'
+              🪑 Multi-Area
+            </button>
+            <button
+              onClick={() => switchRoiPreset('full')}
+              className={`px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-medium transition shrink-0 ${
+                roiPreset === 'full'
+                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                  : 'bg-studio-950 text-studio-400 hover:text-white border border-studio-800'
               }`}
             >
-              {productDecision ? '✓' : '3'}
-            </div>
-            <span className="truncate">3. Hasil QC</span>
+              📐 Seluruh Permukaan
+            </button>
+            <button
+              onClick={() => switchRoiPreset('custom')}
+              className={`px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-medium transition shrink-0 flex items-center gap-1 ${
+                roiPreset === 'custom'
+                  ? 'bg-amber-500 text-black font-bold shadow-md'
+                  : 'bg-studio-950 text-studio-400 hover:text-white border border-studio-800'
+              }`}
+            >
+              <span>✏️ Area Bebas</span>
+            </button>
           </div>
         </div>
+      </div>
 
-        {/* Desktop Detailed Stepper (>= md) */}
-        <div className="hidden md:flex items-center justify-between gap-3">
+      {/* Bilah Alur Kerja 3 Langkah Studio (Hanya Ditampilkan di Desktop >= md) */}
+      <div className="hidden md:block bg-studio-900/90 border border-studio-800 rounded-2xl p-4 shadow-lg">
+        {/* Desktop Detailed Stepper */}
+        <div className="flex items-center justify-between gap-3">
           {/* Langkah 1 */}
           <div
             className={`flex items-center space-x-3 w-1/3 p-3 rounded-xl border transition-all ${
@@ -1109,7 +1031,7 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
               )
             )}
           </div>
-          <p className="text-xs text-studio-400">
+          <p className="hidden sm:block text-xs text-studio-400">
             {comparisonStatus === 'idle'
               ? 'Langkah 1: Masukkan foto master (kiri) dan foto produk (kanan) di atas.'
               : comparisonStatus === 'ready'

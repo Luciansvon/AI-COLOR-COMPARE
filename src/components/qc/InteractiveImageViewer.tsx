@@ -65,6 +65,11 @@ type DragState =
       startXPercent: number;
       startYPercent: number;
       wrapperRect: DOMRect;
+    }
+  | {
+      type: 'pinch';
+      initialDist: number;
+      initialZoom: number;
     };
 
 export const InteractiveImageViewer: React.FC<InteractiveImageViewerProps> = ({
@@ -215,6 +220,30 @@ export const InteractiveImageViewer: React.FC<InteractiveImageViewerProps> = ({
     });
   };
 
+  const handleTouchStartMoveBox = (e: React.TouchEvent, roi: ROIItem) => {
+    if (!isEditableRoi || toolMode === 'pan' || toolMode === 'draw') return;
+    if (e.touches.length !== 1) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!imageWrapperRef.current) return;
+    const wrapperRect = imageWrapperRef.current.getBoundingClientRect();
+    const touch = e.touches[0];
+
+    if (onSelectRoi) onSelectRoi(roi.id);
+
+    lastBoxRef.current = { id: roi.id, box: { ...roi.box } };
+    setActiveDragBox({ id: roi.id, box: { ...roi.box } });
+    setDragState({
+      type: 'roi-move',
+      roiId: roi.id,
+      startX: touch.clientX,
+      startY: touch.clientY,
+      initialBox: { ...roi.box },
+      wrapperRect,
+    });
+  };
+
   const handleStartResize = (
     e: React.MouseEvent,
     roiId: string,
@@ -238,6 +267,36 @@ export const InteractiveImageViewer: React.FC<InteractiveImageViewerProps> = ({
       handle,
       startX: e.clientX,
       startY: e.clientY,
+      initialBox: { ...currentBox },
+      wrapperRect,
+    });
+  };
+
+  const handleTouchStartResize = (
+    e: React.TouchEvent,
+    roiId: string,
+    handle: 'tl' | 'tr' | 'bl' | 'br',
+    currentBox: ROIBox
+  ) => {
+    if (!isEditableRoi) return;
+    if (e.touches.length !== 1) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!imageWrapperRef.current) return;
+    const wrapperRect = imageWrapperRef.current.getBoundingClientRect();
+    const touch = e.touches[0];
+
+    if (onSelectRoi) onSelectRoi(roiId);
+
+    lastBoxRef.current = { id: roiId, box: { ...currentBox } };
+    setActiveDragBox({ id: roiId, box: { ...currentBox } });
+    setDragState({
+      type: 'roi-resize',
+      roiId,
+      handle,
+      startX: touch.clientX,
+      startY: touch.clientY,
       initialBox: { ...currentBox },
       wrapperRect,
     });
@@ -279,15 +338,67 @@ export const InteractiveImageViewer: React.FC<InteractiveImageViewerProps> = ({
     }
   };
 
+  const handleTouchStartContainer = (e: React.TouchEvent) => {
+    if (!imageSrc) return;
+
+    // Cubit 2 jari untuk zoom (pinch-to-zoom)
+    if (e.touches.length === 2) {
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      setDragState({
+        type: 'pinch',
+        initialDist: Math.max(10, dist),
+        initialZoom: zoomLevel,
+      });
+      return;
+    }
+
+    // 1 jari pada kontainer foto (pan atau draw)
+    if (e.touches.length === 1) {
+      const touch = e.touches[0];
+      if (toolMode === 'pan' || (zoomLevel > 1.0 && toolMode !== 'draw')) {
+        setDragState({
+          type: 'pan',
+          startX: touch.clientX,
+          startY: touch.clientY,
+          initialPan: { ...panOffset },
+        });
+        return;
+      }
+
+      if (toolMode === 'draw' && imageWrapperRef.current && isEditableRoi) {
+        const rect = imageWrapperRef.current.getBoundingClientRect();
+        const startXPercent = Math.max(0, Math.min(100, ((touch.clientX - rect.left) / rect.width) * 100));
+        const startYPercent = Math.max(0, Math.min(100, ((touch.clientY - rect.top) / rect.height) * 100));
+
+        setDrawingBox({
+          x: Number(startXPercent.toFixed(1)),
+          y: Number(startYPercent.toFixed(1)),
+          width: 0,
+          height: 0,
+        });
+
+        setDragState({
+          type: 'draw',
+          startXPercent,
+          startYPercent,
+          wrapperRect: rect,
+        });
+      }
+    }
+  };
+
   useEffect(() => {
     if (!dragState) return;
 
-    const handleGlobalMouseMove = (e: MouseEvent) => {
-      e.preventDefault();
+    const processMove = (clientX: number, clientY: number) => {
+      if (!dragState) return;
 
       if (dragState.type === 'pan') {
-        const dx = e.clientX - dragState.startX;
-        const dy = e.clientY - dragState.startY;
+        const dx = clientX - dragState.startX;
+        const dy = clientY - dragState.startY;
         setPanOffset({
           x: dragState.initialPan.x + dx,
           y: dragState.initialPan.y + dy,
@@ -296,8 +407,8 @@ export const InteractiveImageViewer: React.FC<InteractiveImageViewerProps> = ({
       }
 
       if (dragState.type === 'roi-move') {
-        const dx = e.clientX - dragState.startX;
-        const dy = e.clientY - dragState.startY;
+        const dx = clientX - dragState.startX;
+        const dy = clientY - dragState.startY;
         const dPercentX = (dx / dragState.wrapperRect.width) * 100;
         const dPercentY = (dy / dragState.wrapperRect.height) * 100;
 
@@ -316,8 +427,8 @@ export const InteractiveImageViewer: React.FC<InteractiveImageViewerProps> = ({
       }
 
       if (dragState.type === 'roi-resize') {
-        const dx = e.clientX - dragState.startX;
-        const dy = e.clientY - dragState.startY;
+        const dx = clientX - dragState.startX;
+        const dy = clientY - dragState.startY;
         const dPercentX = (dx / dragState.wrapperRect.width) * 100;
         const dPercentY = (dy / dragState.wrapperRect.height) * 100;
 
@@ -363,8 +474,8 @@ export const InteractiveImageViewer: React.FC<InteractiveImageViewerProps> = ({
       }
 
       if (dragState.type === 'draw') {
-        const currPercentX = Math.max(0, Math.min(100, ((e.clientX - dragState.wrapperRect.left) / dragState.wrapperRect.width) * 100));
-        const currPercentY = Math.max(0, Math.min(100, ((e.clientY - dragState.wrapperRect.top) / dragState.wrapperRect.height) * 100));
+        const currPercentX = Math.max(0, Math.min(100, ((clientX - dragState.wrapperRect.left) / dragState.wrapperRect.width) * 100));
+        const currPercentY = Math.max(0, Math.min(100, ((clientY - dragState.wrapperRect.top) / dragState.wrapperRect.height) * 100));
 
         const x = Math.min(dragState.startXPercent, currPercentX);
         const y = Math.min(dragState.startYPercent, currPercentY);
@@ -380,7 +491,7 @@ export const InteractiveImageViewer: React.FC<InteractiveImageViewerProps> = ({
       }
     };
 
-    const handleGlobalMouseUp = () => {
+    const finalizeDrag = () => {
       // Jika baru selesai menggeser atau mengubah ukuran kotak, kirim pembaruan final
       if (lastBoxRef.current && onUpdateRoiBoxRef.current) {
         onUpdateRoiBoxRef.current(lastBoxRef.current.id, lastBoxRef.current.box, true);
@@ -402,12 +513,52 @@ export const InteractiveImageViewer: React.FC<InteractiveImageViewerProps> = ({
       setDragState(null);
     };
 
+    const handleGlobalMouseMove = (e: MouseEvent) => {
+      e.preventDefault();
+      processMove(e.clientX, e.clientY);
+    };
+
+    const handleGlobalMouseUp = () => {
+      finalizeDrag();
+    };
+
+    const handleGlobalTouchMove = (e: TouchEvent) => {
+      if (dragState.type === 'pinch') {
+        if (e.touches.length === 2) {
+          e.preventDefault();
+          const dist = Math.hypot(
+            e.touches[0].clientX - e.touches[1].clientX,
+            e.touches[0].clientY - e.touches[1].clientY
+          );
+          const scaleFactor = dist / dragState.initialDist;
+          const nextZoom = Math.max(1.0, Math.min(4.0, Math.round(dragState.initialZoom * scaleFactor * 100) / 100));
+          setZoomLevel(nextZoom);
+        }
+        return;
+      }
+
+      if (e.touches.length === 1) {
+        e.preventDefault(); // Mencegah scrolling browser Android saat drag kotak atau pan!
+        processMove(e.touches[0].clientX, e.touches[0].clientY);
+      }
+    };
+
+    const handleGlobalTouchEnd = () => {
+      finalizeDrag();
+    };
+
     window.addEventListener('mousemove', handleGlobalMouseMove);
     window.addEventListener('mouseup', handleGlobalMouseUp);
+    window.addEventListener('touchmove', handleGlobalTouchMove, { passive: false });
+    window.addEventListener('touchend', handleGlobalTouchEnd);
+    window.addEventListener('touchcancel', handleGlobalTouchEnd);
 
     return () => {
       window.removeEventListener('mousemove', handleGlobalMouseMove);
       window.removeEventListener('mouseup', handleGlobalMouseUp);
+      window.removeEventListener('touchmove', handleGlobalTouchMove);
+      window.removeEventListener('touchend', handleGlobalTouchEnd);
+      window.removeEventListener('touchcancel', handleGlobalTouchEnd);
     };
   }, [dragState, drawingBox]);
 
@@ -452,9 +603,9 @@ export const InteractiveImageViewer: React.FC<InteractiveImageViewerProps> = ({
             </span>
           )}
 
-          {/* Kontrol Zoom & Alat Interaktif */}
+          {/* Kontrol Zoom & Alat Interaktif (Khusus Desktop PC) */}
           {imageSrc && (
-            <div className="flex items-center space-x-1 bg-studio-950 px-2 py-1 rounded-xl border border-studio-800 text-xs">
+            <div className="hidden sm:flex items-center space-x-1 bg-studio-950 px-2 py-1 rounded-xl border border-studio-800 text-xs">
               <span className="font-mono text-[11px] text-amber-300 font-bold px-1.5">
                 {Math.round(zoomLevel * 100)}%
               </span>
@@ -564,7 +715,12 @@ export const InteractiveImageViewer: React.FC<InteractiveImageViewerProps> = ({
         ref={containerRef}
         onWheel={handleWheel}
         onMouseDown={handleMouseDownOnContainer}
-        className={`relative aspect-[16/10] max-h-[350px] min-h-[190px] sm:min-h-[240px] bg-studio-950 flex items-center justify-center overflow-hidden select-none ${
+        onTouchStart={handleTouchStartContainer}
+        className={`relative w-full ${
+          imageSrc
+            ? 'min-h-[220px] max-h-[52vh] sm:max-h-[460px] py-1'
+            : 'h-[180px] sm:h-[240px]'
+        } bg-studio-950 flex items-center justify-center overflow-hidden select-none touch-none ${
           toolMode === 'draw'
             ? 'cursor-crosshair'
             : toolMode === 'pan' || (zoomLevel > 1.0 && dragState?.type === 'pan')
@@ -575,7 +731,7 @@ export const InteractiveImageViewer: React.FC<InteractiveImageViewerProps> = ({
         {imageSrc ? (
           <div
             ref={imageWrapperRef}
-            className="relative inline-flex items-center justify-center max-w-full max-h-full"
+            className="relative inline-flex items-center justify-center max-w-full max-h-full touch-none"
             style={{
               transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoomLevel})`,
               transformOrigin: 'center center',
@@ -585,7 +741,7 @@ export const InteractiveImageViewer: React.FC<InteractiveImageViewerProps> = ({
             <img
               src={imageSrc}
               alt={title}
-              className="max-w-full max-h-full block object-contain pointer-events-none select-none"
+              className="max-w-full max-h-[50vh] sm:max-h-[440px] w-auto h-auto block object-contain pointer-events-none select-none"
               draggable={false}
             />
 
@@ -625,6 +781,7 @@ export const InteractiveImageViewer: React.FC<InteractiveImageViewerProps> = ({
                 <div
                   key={roi.id}
                   onMouseDown={(e) => handleStartMoveBox(e, { ...roi, box: displayBox })}
+                  onTouchStart={(e) => handleTouchStartMoveBox(e, { ...roi, box: displayBox })}
                   onClick={(e) => {
                     e.stopPropagation();
                     if (onSelectRoi) onSelectRoi(roi.id);
@@ -635,7 +792,7 @@ export const InteractiveImageViewer: React.FC<InteractiveImageViewerProps> = ({
                     width: `${displayBox.width}%`,
                     height: `${displayBox.height}%`,
                   }}
-                  className={`absolute transition-colors border-2 rounded ${borderColor} ${bgColor} ${
+                  className={`absolute transition-colors border-2 rounded ${borderColor} ${bgColor} touch-none ${
                     isEditableRoi && toolMode !== 'pan' ? 'cursor-move' : 'cursor-pointer'
                   } ${
                     isSelected
@@ -657,27 +814,42 @@ export const InteractiveImageViewer: React.FC<InteractiveImageViewerProps> = ({
                       {/* Titik Kiri Atas (TL) */}
                       <div
                         onMouseDown={(e) => handleStartResize(e, roi.id, 'tl', displayBox)}
-                        className="absolute -top-1.5 -left-1.5 w-3.5 h-3.5 bg-white border-2 border-amber-500 rounded-full cursor-nwse-resize shadow-lg hover:scale-125 z-30 transition-transform"
+                        onTouchStart={(e) => handleTouchStartResize(e, roi.id, 'tl', displayBox)}
+                        className="absolute -top-3.5 -left-3.5 w-7 h-7 sm:w-4 sm:h-4 sm:-top-2 sm:-left-2 flex items-center justify-center cursor-nwse-resize z-30 touch-none select-none"
                         title="Tarik sudut untuk ubah ukuran area"
-                      />
+                      >
+                        <div className="w-3.5 h-3.5 sm:w-3 sm:h-3 bg-white border-2 border-amber-500 rounded-full shadow-lg hover:scale-125 transition-transform" />
+                      </div>
+
                       {/* Titik Kanan Atas (TR) */}
                       <div
                         onMouseDown={(e) => handleStartResize(e, roi.id, 'tr', displayBox)}
-                        className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 bg-white border-2 border-amber-500 rounded-full cursor-nesw-resize shadow-lg hover:scale-125 z-30 transition-transform"
+                        onTouchStart={(e) => handleTouchStartResize(e, roi.id, 'tr', displayBox)}
+                        className="absolute -top-3.5 -right-3.5 w-7 h-7 sm:w-4 sm:h-4 sm:-top-2 sm:-right-2 flex items-center justify-center cursor-nesw-resize z-30 touch-none select-none"
                         title="Tarik sudut untuk ubah ukuran area"
-                      />
+                      >
+                        <div className="w-3.5 h-3.5 sm:w-3 sm:h-3 bg-white border-2 border-amber-500 rounded-full shadow-lg hover:scale-125 transition-transform" />
+                      </div>
+
                       {/* Titik Kiri Bawah (BL) */}
                       <div
                         onMouseDown={(e) => handleStartResize(e, roi.id, 'bl', displayBox)}
-                        className="absolute -bottom-1.5 -left-1.5 w-3.5 h-3.5 bg-white border-2 border-amber-500 rounded-full cursor-nesw-resize shadow-lg hover:scale-125 z-30 transition-transform"
+                        onTouchStart={(e) => handleTouchStartResize(e, roi.id, 'bl', displayBox)}
+                        className="absolute -bottom-3.5 -left-3.5 w-7 h-7 sm:w-4 sm:h-4 sm:-bottom-2 sm:-left-2 flex items-center justify-center cursor-nesw-resize z-30 touch-none select-none"
                         title="Tarik sudut untuk ubah ukuran area"
-                      />
+                      >
+                        <div className="w-3.5 h-3.5 sm:w-3 sm:h-3 bg-white border-2 border-amber-500 rounded-full shadow-lg hover:scale-125 transition-transform" />
+                      </div>
+
                       {/* Titik Kanan Bawah (BR) */}
                       <div
                         onMouseDown={(e) => handleStartResize(e, roi.id, 'br', displayBox)}
-                        className="absolute -bottom-1.5 -right-1.5 w-3.5 h-3.5 bg-white border-2 border-amber-500 rounded-full cursor-nwse-resize shadow-lg hover:scale-125 z-30 transition-transform"
+                        onTouchStart={(e) => handleTouchStartResize(e, roi.id, 'br', displayBox)}
+                        className="absolute -bottom-3.5 -right-3.5 w-7 h-7 sm:w-4 sm:h-4 sm:-bottom-2 sm:-right-2 flex items-center justify-center cursor-nwse-resize z-30 touch-none select-none"
                         title="Tarik sudut untuk ubah ukuran area"
-                      />
+                      >
+                        <div className="w-3.5 h-3.5 sm:w-3 sm:h-3 bg-white border-2 border-amber-500 rounded-full shadow-lg hover:scale-125 transition-transform" />
+                      </div>
 
                       {/* Panduan Arah Geser */}
                       <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity pointer-events-none">
@@ -734,6 +906,53 @@ export const InteractiveImageViewer: React.FC<InteractiveImageViewerProps> = ({
             </span>
           </label>
         )}
+
+        {/* Tombol Zoom Melayang (Floating Zoom Controls) */}
+        {imageSrc && (
+          <div className="absolute bottom-2.5 right-2.5 z-30 flex items-center bg-studio-950/90 backdrop-blur-md border border-studio-700/80 rounded-full px-1.5 py-1 shadow-2xl gap-1">
+            <button
+              type="button"
+              onClick={handleZoomOut}
+              disabled={zoomLevel <= 1.0}
+              title="Perkecil (-)"
+              aria-label="Perkecil foto"
+              className="w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-studio-300 hover:text-white active:bg-studio-800 disabled:opacity-30 disabled:pointer-events-none transition"
+            >
+              <ZoomOut className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            </button>
+
+            <button
+              type="button"
+              onClick={handleResetZoom}
+              title="Kembalikan ke ukuran normal"
+              className="px-2 h-7 sm:h-8 rounded-full flex items-center justify-center font-mono text-[11px] font-bold text-amber-300 hover:text-amber-200 active:bg-studio-800 transition"
+            >
+              {Math.round(zoomLevel * 100)}%
+            </button>
+
+            <button
+              type="button"
+              onClick={handleZoomIn}
+              disabled={zoomLevel >= 4.0}
+              title="Perbesar (+)"
+              aria-label="Perbesar foto"
+              className="w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-studio-300 hover:text-white active:bg-studio-800 disabled:opacity-30 disabled:pointer-events-none transition"
+            >
+              <ZoomIn className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            </button>
+
+            {zoomLevel > 1.0 && (
+              <button
+                type="button"
+                onClick={handleResetZoom}
+                title="Pas Layar"
+                className="w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-studio-400 hover:text-white active:bg-studio-800 transition"
+              >
+                <Maximize2 className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {uploadError && (
@@ -744,7 +963,7 @@ export const InteractiveImageViewer: React.FC<InteractiveImageViewerProps> = ({
 
       {/* Footer Bantuan Interaktif */}
       {imageSrc && (
-        <div className="px-4 py-2 bg-studio-950/90 border-t border-studio-800/80 flex flex-wrap items-center justify-between gap-2 text-[11px] text-studio-400">
+        <div className="hidden sm:flex px-4 py-2 bg-studio-950/90 border-t border-studio-800/80 flex-wrap items-center justify-between gap-2 text-[11px] text-studio-400">
           <div className="flex items-center space-x-1.5">
             <span className="text-amber-400 font-bold">💡 Tips:</span>
             <span>
