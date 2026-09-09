@@ -14,8 +14,8 @@ permissions:
 
 jobs:
   audit:
-    uses: Luciansvon/B.I.M.A-DEV-INFRA/.github/workflows/repository-audit.yml@77432e1d990e576b6e964565c8dc9a248db42d69
+    uses: Luciansvon/B.I.M.A-DEV-INFRA/.github/workflows/repository-audit.yml@dc7a96cf885f41bd665270c4a77ef0e7c12d313b
     with:
-      infra-ref: 77432e1d990e576b6e964565c8dc9a248db42d69
+      infra-ref: dc7a96cf885f41bd665270c4a77ef0e7c12d313b
       policy-path: bima-audit-policy.json
       artifact-name: ai-color-compare-audit
