@@ -424,21 +424,23 @@ export const InteractiveImageViewer: React.FC<InteractiveImageViewerProps> = ({
 
       {/* Header Panel */}
       <div className="px-4 py-3 border-b border-studio-800 flex flex-wrap items-center justify-between gap-2 bg-studio-900/90">
-        <div className="flex items-center space-x-2.5">
+        <div className="flex items-center space-x-2 sm:space-x-2.5 min-w-0 flex-1">
           {isMaster ? (
-            <div className="p-1.5 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20">
-              <ShieldCheck className="w-4 h-4" />
+            <div className="p-1.5 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 shrink-0">
+              <ShieldCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </div>
           ) : (
-            <div className="p-1.5 rounded-lg bg-sky-500/10 text-sky-400 border border-sky-500/20">
-              <Eye className="w-4 h-4" />
+            <div className="p-1.5 rounded-lg bg-sky-500/10 text-sky-400 border border-sky-500/20 shrink-0">
+              <Eye className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </div>
           )}
-          <div>
-            <h3 className="text-xs font-bold uppercase tracking-wider text-studio-100">
+          <div className="min-w-0 flex-1">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-studio-100 truncate">
               {title}
             </h3>
-            <p className="text-[11px] text-studio-400 truncate max-w-xs">{subtitle}</p>
+            <p className="text-[10px] sm:text-[11px] text-studio-400 truncate max-w-[200px] sm:max-w-md" title={subtitle}>
+              {subtitle}
+            </p>
           </div>
         </div>
 
@@ -562,7 +564,7 @@ export const InteractiveImageViewer: React.FC<InteractiveImageViewerProps> = ({
         ref={containerRef}
         onWheel={handleWheel}
         onMouseDown={handleMouseDownOnContainer}
-        className={`relative aspect-[16/10] max-h-[350px] min-h-[240px] bg-studio-950 flex items-center justify-center overflow-hidden select-none ${
+        className={`relative aspect-[16/10] max-h-[350px] min-h-[190px] sm:min-h-[240px] bg-studio-950 flex items-center justify-center overflow-hidden select-none ${
           toolMode === 'draw'
             ? 'cursor-crosshair'
             : toolMode === 'pan' || (zoomLevel > 1.0 && dragState?.type === 'pan')
@@ -712,23 +714,23 @@ export const InteractiveImageViewer: React.FC<InteractiveImageViewerProps> = ({
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
-            className={`w-full h-full flex flex-col items-center justify-center p-6 border-2 border-dashed transition cursor-pointer group ${
+            className={`w-full h-full flex flex-col items-center justify-center p-3 sm:p-6 border-2 border-dashed transition cursor-pointer group ${
               isDraggingFile
                 ? 'border-amber-400 bg-amber-500/20'
                 : 'border-studio-700 hover:border-amber-500/80 bg-studio-950/60'
             }`}
           >
-            <div className="w-14 h-14 rounded-2xl bg-studio-900 border border-studio-800 group-hover:border-amber-500/50 flex items-center justify-center text-studio-400 group-hover:text-amber-400 mb-3.5 transition shadow-inner">
-              <Upload className="w-6 h-6" />
+            <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl bg-studio-900 border border-studio-800 group-hover:border-amber-500/50 flex items-center justify-center text-studio-400 group-hover:text-amber-400 mb-2 sm:mb-3.5 transition shadow-inner">
+              <Upload className="w-5 h-5 sm:w-6 sm:h-6" />
             </div>
-            <span className="text-xs font-bold text-studio-100 group-hover:text-amber-300 text-center">
+            <span className="text-[11px] sm:text-xs font-bold text-studio-100 group-hover:text-amber-300 text-center px-2">
               {uploadButtonText}
             </span>
-            <div className="mt-2.5 px-3.5 py-1.5 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[11px] font-semibold group-hover:bg-amber-500 group-hover:text-black transition shadow-sm">
+            <div className="mt-2 sm:mt-2.5 px-3 py-1 sm:px-3.5 sm:py-1.5 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] sm:text-[11px] font-semibold group-hover:bg-amber-500 group-hover:text-black transition shadow-sm">
               Klik untuk Pilih Berkas Foto
             </div>
-            <span className="text-[11px] text-studio-500 mt-2 text-center">
-              Mendukung JPG, PNG, dan WebP. RAW belum diproses langsung oleh penampil ini.
+            <span className="text-[10px] sm:text-[11px] text-studio-500 mt-1.5 sm:mt-2 text-center px-2">
+              Mendukung JPG, PNG, dan WebP.
             </span>
           </label>
         )}

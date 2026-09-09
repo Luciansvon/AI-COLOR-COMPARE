@@ -54,7 +54,10 @@
 - **Riset Versi Android (PR #11 - Sedang Aktif/Open)**: Dokumen riset arsitektur 149 sumber untuk rencana masa depan aplikasi di perangkat Android telah diajukan di PR #11 dengan status pengujian otomatis lolos 100%.
 - **Permintaan Pembangunan APK Android & Uji Repo**: Bima meminta pembuatan berkas APK Android dan menanyakan apakah sudah diuji di repositori. Seluruh pengujian otomatis di repositori GitHub (`CI Studio Color QC` dan `Build Android Pilot APK`) serta pengujian lokal telah diverifikasi lulus 100%, sementara pengujian fisik di HP nyata diserahkan ke operator.
 - **Integrasi & Hasil Audit Shared (B.I.M.A-DEV-INFRA)**: Repositori telah resmi dihubungkan dengan alur audit reusable `B.I.M.A-DEV-INFRA` (`bima-shared-audit.yml`). Setelah penyesuaian berkas panduan (`AGENTS.md`), kebijakan ukuran berkas proyek (`bima-audit-policy.json`), dan pengabaian berkas RAW berukuran besar di git tracking, hasil audit resmi berstatus **PASS (100% Lolos / Centang Hijau)** dengan bukti 208 berkas diperiksa tanpa temuan masalah.
-
-
-
-
+- **Uji Coba Langsung APK Android oleh Bima (9 September 2026)**: Bima menguji langsung berkas APK di HP Android miliknya dan menemukan beberapa masalah tata letak (layout) yang mengganggu kenyamanan pengguna:
+  - Jam dan ikon status bar HP menimpa logo, teks judul aplikasi, dan tombol Riwayat karena belum adanya bantalan batas aman (*safe area insets*).
+  - Bilah alur 3 langkah terlalu tebal vertikal sehingga memakan layar sebelum foto terlihat.
+  - Tombol pilihan area uji terpotong dan berjejal di layar sempit.
+  - Judul kotak foto terpotong elipsis di sisi kanan.
+  - Muncul kotak panduan unggah ganda dengan tombol serupa yang membingungkan alur kerja.
+  - Bima menghendaki tata letak yang bersih, proporsional, hemat ruang vertikal, dan nyaman dioperasikan di layar sentuh HP.

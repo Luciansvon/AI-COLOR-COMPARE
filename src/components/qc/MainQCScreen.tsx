@@ -680,8 +680,9 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-12">
       {/* Pilihan Mode Kerja: Mode Uji Foto Sendiri (Default) vs Mode Demo Simulasi */}
-      <div className="bg-studio-900 border border-studio-800 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4 shadow-md">
-        <div className="flex items-center space-x-2">
+      {/* Pilihan Mode Kerja: Mode Uji Foto Sendiri (Default) vs Mode Demo Simulasi */}
+      <div className="bg-studio-900 border border-studio-800 rounded-2xl p-3 sm:p-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4 shadow-md">
+        <div className="grid grid-cols-2 gap-2 w-full sm:w-auto">
           <button
             onClick={() => {
               setAppMode('upload');
@@ -699,14 +700,14 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
               });
               resetAnalysis('idle');
             }}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
+            className={`px-2.5 sm:px-4 py-2 rounded-xl text-[11px] sm:text-xs font-bold transition flex items-center justify-center gap-1.5 ${
               appMode === 'upload'
                 ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20'
                 : 'bg-studio-950 text-studio-400 hover:text-white border border-studio-800'
             }`}
           >
-            <Upload className="w-4 h-4" />
-            1. Mode Uji Foto Sendiri (JPG / PNG / WebP)
+            <Upload className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate">1. Uji Foto Sendiri</span>
           </button>
 
           <button
@@ -714,23 +715,23 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
               setAppMode('demo');
               loadScenario('scenario-match');
             }}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 ${
+            className={`px-2.5 sm:px-4 py-2 rounded-xl text-[11px] sm:text-xs font-bold transition flex items-center justify-center gap-1.5 ${
               appMode === 'demo'
                 ? 'bg-studio-800 text-amber-300 border border-amber-500/40 shadow-lg'
                 : 'bg-studio-950 text-studio-400 hover:text-white border border-studio-800'
             }`}
           >
-            <Sparkles className="w-4 h-4" />
-            2. Mode Contoh Demo Studio
+            <Sparkles className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate">2. Demo Studio</span>
           </button>
         </div>
 
         {/* Jika mode demo aktif, tampilkan 6 tombol skenario cepat */}
         {appMode === 'demo' && (
-          <div className="flex items-center space-x-1.5 flex-wrap gap-y-1.5">
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 no-scrollbar w-full sm:w-auto">
             <button
               onClick={() => loadScenario('scenario-match')}
-              className={`px-2.5 py-1 rounded-lg text-xs font-medium transition ${
+              className={`px-2.5 py-1 rounded-lg text-xs font-medium transition shrink-0 ${
                 selectedScenario === 'scenario-match'
                   ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
                   : 'bg-studio-950 text-studio-400 hover:text-white border border-studio-800'
@@ -740,7 +741,7 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
             </button>
             <button
               onClick={() => loadScenario('scenario-wb')}
-              className={`px-2.5 py-1 rounded-lg text-xs font-medium transition ${
+              className={`px-2.5 py-1 rounded-lg text-xs font-medium transition shrink-0 ${
                 selectedScenario === 'scenario-wb'
                   ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
                   : 'bg-studio-950 text-studio-400 hover:text-white border border-studio-800'
@@ -750,17 +751,17 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
             </button>
             <button
               onClick={() => loadScenario('scenario-material')}
-              className={`px-2.5 py-1 rounded-lg text-xs font-medium transition ${
+              className={`px-2.5 py-1 rounded-lg text-xs font-medium transition shrink-0 ${
                 selectedScenario === 'scenario-material'
                   ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
                   : 'bg-studio-950 text-studio-400 hover:text-white border border-studio-800'
               }`}
             >
-              3. Material Cacat
+              3. Cacat
             </button>
             <button
               onClick={() => loadScenario('scenario-conflict')}
-              className={`px-2.5 py-1 rounded-lg text-xs font-medium transition ${
+              className={`px-2.5 py-1 rounded-lg text-xs font-medium transition shrink-0 ${
                 selectedScenario === 'scenario-conflict'
                   ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40'
                   : 'bg-studio-950 text-studio-400 hover:text-white border border-studio-800'
@@ -770,35 +771,35 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
             </button>
             <button
               onClick={() => loadScenario('scenario-canon-raw')}
-              className={`px-2.5 py-1 rounded-lg text-xs font-medium transition ${
+              className={`px-2.5 py-1 rounded-lg text-xs font-medium transition shrink-0 ${
                 selectedScenario === 'scenario-canon-raw'
                   ? 'bg-sky-500/20 text-sky-300 border border-sky-500/40'
                   : 'bg-studio-950 text-studio-400 hover:text-white border border-studio-800'
               }`}
             >
-              5. Canon CR2 Preview
+              5. Canon RAW
             </button>
             <button
               onClick={() => loadScenario('scenario-nikon-raw')}
-              className={`px-2.5 py-1 rounded-lg text-xs font-medium transition ${
+              className={`px-2.5 py-1 rounded-lg text-xs font-medium transition shrink-0 ${
                 selectedScenario === 'scenario-nikon-raw'
                   ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
                   : 'bg-studio-950 text-studio-400 hover:text-white border border-studio-800'
               }`}
             >
-              6. Nikon NEF Preview
+              6. Nikon RAW
             </button>
           </div>
         )}
 
         {/* Jika mode unggah aktif, tampilkan pilihan preset area kayu */}
         {appMode === 'upload' && (
-          <div className="flex items-center space-x-2 text-xs">
-            <span className="text-studio-400">Pilihan Area Uji:</span>
-            <div className="flex items-center space-x-1">
+          <div className="flex items-center gap-2 text-xs w-full sm:w-auto overflow-hidden">
+            <span className="text-studio-400 shrink-0 text-[11px] sm:text-xs">Area Uji:</span>
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 no-scrollbar w-full sm:w-auto">
               <button
                 onClick={() => switchRoiPreset('center')}
-                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition ${
+                className={`px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-medium transition shrink-0 ${
                   roiPreset === 'center'
                     ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
                     : 'bg-studio-950 text-studio-400 hover:text-white border border-studio-800'
@@ -808,7 +809,7 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
               </button>
               <button
                 onClick={() => switchRoiPreset('multi')}
-                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition ${
+                className={`px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-medium transition shrink-0 ${
                   roiPreset === 'multi'
                     ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
                     : 'bg-studio-950 text-studio-400 hover:text-white border border-studio-800'
@@ -818,7 +819,7 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
               </button>
               <button
                 onClick={() => switchRoiPreset('full')}
-                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition ${
+                className={`px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-medium transition shrink-0 ${
                   roiPreset === 'full'
                     ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
                     : 'bg-studio-950 text-studio-400 hover:text-white border border-studio-800'
@@ -828,13 +829,13 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
               </button>
               <button
                 onClick={() => switchRoiPreset('custom')}
-                className={`px-2.5 py-1 rounded-lg text-xs font-medium transition flex items-center gap-1 ${
+                className={`px-2.5 py-1 rounded-lg text-[11px] sm:text-xs font-medium transition shrink-0 flex items-center gap-1 ${
                   roiPreset === 'custom'
                     ? 'bg-amber-500 text-black font-bold shadow-md'
                     : 'bg-studio-950 text-studio-400 hover:text-white border border-studio-800'
                 }`}
               >
-                <span>✏️ Area Bebas (Manual)</span>
+                <span>✏️ Area Bebas</span>
               </button>
             </div>
           </div>
@@ -842,11 +843,87 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
       </div>
 
       {/* Bilah Alur Kerja 3 Langkah Studio (Studio Workflow Stepper) */}
-      <div className="bg-studio-900/90 border border-studio-800 rounded-2xl p-4 shadow-lg">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-3">
+      <div className="bg-studio-900/90 border border-studio-800 rounded-2xl p-2.5 sm:p-4 shadow-lg">
+        {/* Mobile Compact Stepper (< md) */}
+        <div className="grid grid-cols-3 gap-1.5 md:hidden">
           {/* Langkah 1 */}
           <div
-            className={`flex items-center space-x-3 w-full md:w-1/3 p-3 rounded-xl border transition-all ${
+            className={`flex items-center gap-1.5 p-1.5 rounded-lg border text-[10px] font-semibold transition-all ${
+              masterImageSrc && productImageSrc
+                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                : 'bg-studio-950/60 border-amber-500/40 text-amber-300'
+            }`}
+          >
+            <div
+              className={`w-5 h-5 rounded-full flex items-center justify-center font-bold text-[10px] shrink-0 ${
+                masterImageSrc && productImageSrc
+                  ? 'bg-emerald-500 text-black'
+                  : 'bg-amber-500 text-black'
+              }`}
+            >
+              {masterImageSrc && productImageSrc ? '✓' : '1'}
+            </div>
+            <span className="truncate">1. Dua Foto</span>
+          </div>
+
+          {/* Langkah 2 */}
+          <div
+            className={`flex items-center gap-1.5 p-1.5 rounded-lg border text-[10px] font-semibold transition-all ${
+              comparisonStatus === 'completed'
+                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                : comparisonStatus === 'ready'
+                ? 'bg-amber-500/20 border-amber-500/50 text-amber-200 animate-pulse'
+                : comparisonStatus === 'analyzing'
+                ? 'bg-sky-500/10 border-sky-500/30 text-sky-300'
+                : 'bg-studio-950/40 border-studio-800 text-studio-500'
+            }`}
+          >
+            <div
+              className={`w-5 h-5 rounded-full flex items-center justify-center font-bold text-[10px] shrink-0 ${
+                comparisonStatus === 'completed'
+                  ? 'bg-emerald-500 text-black'
+                  : comparisonStatus === 'ready'
+                  ? 'bg-amber-500 text-black'
+                  : 'bg-studio-800 text-studio-400'
+              }`}
+            >
+              {comparisonStatus === 'completed' ? '✓' : '2'}
+            </div>
+            <span className="truncate">2. Bandingkan</span>
+          </div>
+
+          {/* Langkah 3 */}
+          <div
+            className={`flex items-center gap-1.5 p-1.5 rounded-lg border text-[10px] font-semibold transition-all ${
+              productDecision
+                ? productDecision === 'PASS'
+                  ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300'
+                  : 'bg-rose-500/20 border-rose-500/40 text-rose-300'
+                : comparisonStatus === 'completed'
+                ? 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+                : 'bg-studio-950/40 border-studio-800 text-studio-500'
+            }`}
+          >
+            <div
+              className={`w-5 h-5 rounded-full flex items-center justify-center font-bold text-[10px] shrink-0 ${
+                productDecision
+                  ? productDecision === 'PASS'
+                    ? 'bg-emerald-500 text-black'
+                    : 'bg-rose-500 text-white'
+                  : 'bg-studio-800 text-studio-400'
+              }`}
+            >
+              {productDecision ? '✓' : '3'}
+            </div>
+            <span className="truncate">3. Hasil QC</span>
+          </div>
+        </div>
+
+        {/* Desktop Detailed Stepper (>= md) */}
+        <div className="hidden md:flex items-center justify-between gap-3">
+          {/* Langkah 1 */}
+          <div
+            className={`flex items-center space-x-3 w-1/3 p-3 rounded-xl border transition-all ${
               masterImageSrc && productImageSrc
                 ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
                 : 'bg-studio-950/60 border-amber-500/40 text-amber-300'
@@ -873,13 +950,13 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
             </div>
           </div>
 
-          <div className="hidden md:block text-studio-600 font-bold text-sm">
+          <div className="text-studio-600 font-bold text-sm">
             <ArrowRight className="w-4 h-4" />
           </div>
 
           {/* Langkah 2 */}
           <div
-            className={`flex items-center space-x-3 w-full md:w-1/3 p-3 rounded-xl border transition-all ${
+            className={`flex items-center space-x-3 w-1/3 p-3 rounded-xl border transition-all ${
               comparisonStatus === 'completed'
                 ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
                 : comparisonStatus === 'ready'
@@ -916,13 +993,13 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
             </div>
           </div>
 
-          <div className="hidden md:block text-studio-600 font-bold text-sm">
+          <div className="text-studio-600 font-bold text-sm">
             <ArrowRight className="w-4 h-4" />
           </div>
 
           {/* Langkah 3 */}
           <div
-            className={`flex items-center space-x-3 w-full md:w-1/3 p-3 rounded-xl border transition-all ${
+            className={`flex items-center space-x-3 w-1/3 p-3 rounded-xl border transition-all ${
               productDecision
                 ? productDecision === 'PASS'
                   ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300'
@@ -960,11 +1037,11 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
       </div>
 
       {/* Grid 2 Penampil Gambar (Master vs Produk) */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         {/* Kolom Kiri: Papan Master Fisik Acuan */}
         <InteractiveImageViewer
-          title="1. Foto Papan Master Acuan (Kiri)"
-          subtitle={masterFileName ? `Berkas: ${masterFileName}` : 'Langkah 1: Klik kotak ini untuk memilih foto sampel master kayu (JPG/PNG/WebP)'}
+          title="1. Master Acuan (Kiri)"
+          subtitle={masterFileName ? `Berkas: ${masterFileName}` : 'Pilih foto sampel master kayu (JPG/PNG/WebP)'}
           imageSrc={masterImageSrc}
           isMaster={true}
           rois={masterRois}
@@ -972,13 +1049,13 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
           onUpdateRoiBox={(_, newBox, isFinal) => handleUpdateMasterRoiBox(newBox, isFinal)}
           isEditableRoi={true}
           onUploadImage={handleMasterUpload}
-          uploadButtonText="Pilih / Unggah Foto Master Kayu (JPG / PNG / WebP)"
+          uploadButtonText="Pilih Foto Master Kayu (JPG/PNG/WebP)"
         />
 
         {/* Kolom Kanan: Foto Produk Studio */}
         <InteractiveImageViewer
-          title="2. Foto Produk Studio yang Mau Dicek (Kanan)"
-          subtitle={imageMetadata.fileName && productImageSrc ? `Berkas: ${imageMetadata.fileName}` : 'Langkah 1: Klik kotak ini untuk memilih foto produk yang mau dicek (JPG/PNG/WebP)'}
+          title="2. Foto Produk (Kanan)"
+          subtitle={imageMetadata.fileName && productImageSrc ? `Berkas: ${imageMetadata.fileName}` : 'Pilih foto produk yang mau dicek (JPG/PNG/WebP)'}
           imageSrc={previewImageSrc}
           rois={rois}
           selectedRoiId={selectedRoiId}
@@ -988,52 +1065,13 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
           roiEstimations={roiEstimated}
           isPreviewingCorrection={isPreviewingCorrection}
           onUploadImage={handleProductUpload}
-          uploadButtonText="Pilih / Unggah Foto Produk Studio (JPG / PNG / WebP)"
+          uploadButtonText="Pilih Foto Produk Studio (JPG/PNG/WebP)"
         />
       </div>
 
-      {/* Banner Panduan jika foto belum lengkap dimasukkan */}
-      {(!masterImageSrc || !productImageSrc) && (
-        <div className="bg-gradient-to-br from-studio-900 to-studio-950 border border-amber-500/30 rounded-2xl p-5 text-center shadow-xl space-y-3">
-          <div className="w-11 h-11 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 mx-auto shadow-inner">
-            <Upload className="w-5 h-5" />
-          </div>
-          <div>
-            <h4 className="text-sm font-bold text-white">
-              Silakan Masukkan Foto Master dan Foto Produk (Format JPG Didukung)
-            </h4>
-            <p className="text-xs text-studio-400 max-w-lg mx-auto mt-1 leading-relaxed">
-              Pilih foto di kedua kotak di atas, atau klik tombol cepat di bawah. Sistem tidak akan membandingkan sebelum Anda menekan tombol bandingkan.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
-            <label
-              htmlFor="master-file-input"
-              className={`px-4 py-2.5 rounded-xl text-xs font-bold border cursor-pointer transition flex items-center gap-2 ${
-                masterImageSrc
-                  ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30'
-                  : 'bg-amber-500/20 text-amber-300 hover:bg-amber-500 hover:text-black border-amber-500/40 shadow-md'
-              }`}
-            >
-              {masterImageSrc ? `✅ Master Terpasang: ${masterFileName}` : '📁 1. Klik untuk Masukkan Foto Master (Kiri)'}
-            </label>
-            <label
-              htmlFor="product-file-input"
-              className={`px-4 py-2.5 rounded-xl text-xs font-bold border cursor-pointer transition flex items-center gap-2 ${
-                productImageSrc
-                  ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30'
-                  : 'bg-sky-500/20 text-sky-300 hover:bg-sky-500 hover:text-white border-sky-500/40 shadow-md'
-              }`}
-            >
-              {productImageSrc ? `✅ Produk Terpasang: ${imageMetadata.fileName}` : '📁 2. Klik untuk Masukkan Foto Produk (Kanan)'}
-            </label>
-          </div>
-        </div>
-      )}
-
       {/* PANEL TOMBOL AKSI UTAMA (Action Center) */}
-      <div className="bg-gradient-to-r from-studio-900 via-studio-850 to-studio-900 border border-studio-800 rounded-2xl p-5 shadow-xl flex flex-col md:flex-row items-center justify-between gap-4">
-        <div className="space-y-1 text-center md:text-left">
+      <div className="bg-gradient-to-r from-studio-900 via-studio-850 to-studio-900 border border-studio-800 rounded-2xl p-4 sm:p-5 shadow-xl flex flex-col md:flex-row items-center justify-between gap-4">
+        <div className="space-y-1 text-center md:text-left w-full md:w-auto">
           <div className="flex items-center justify-center md:justify-start space-x-2">
             <span className="text-xs font-bold uppercase tracking-wider text-studio-300">
               Status Pengecekan Studio:
@@ -1075,7 +1113,7 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
             {comparisonStatus === 'idle'
               ? 'Langkah 1: Masukkan foto master (kiri) dan foto produk (kanan) di atas.'
               : comparisonStatus === 'ready'
-              ? 'Langkah 2: Kedua foto sudah siap! Klik tombol kuning di samping untuk mulai membandingkan warna dan serat kayu.'
+              ? 'Langkah 2: Kedua foto sudah siap! Klik tombol di samping untuk mulai membandingkan warna dan serat kayu.'
               : comparisonStatus === 'analyzing'
               ? 'Sistem sedang membaca piksel warna CIEDE2000 dan pola serat kayu LBP...'
               : isRecomparing
@@ -1085,11 +1123,11 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
         </div>
 
         {/* Tombol Aksi */}
-        <div className="flex items-center space-x-3 shrink-0">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3 w-full md:w-auto shrink-0">
           {comparisonStatus === 'idle' && (
             <button
               disabled
-              className="px-6 py-3.5 rounded-xl bg-studio-800 text-studio-500 border border-studio-700/50 text-xs font-bold uppercase tracking-wider flex items-center gap-2 cursor-not-allowed opacity-70"
+              className="w-full sm:w-auto px-5 sm:px-6 py-3 rounded-xl bg-studio-800 text-studio-500 border border-studio-700/50 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 cursor-not-allowed opacity-70"
             >
               <span>⏳ Masukkan Kedua Foto Dulu</span>
             </button>
@@ -1099,7 +1137,7 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
             <button
               id="btn-start-compare"
               onClick={() => executeComparison()}
-              className="px-8 py-3.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-xs font-extrabold uppercase tracking-wider flex items-center gap-2.5 transition-all shadow-xl shadow-amber-500/20 scale-105 hover:scale-110 active:scale-100"
+              className="w-full sm:w-auto px-6 sm:px-8 py-3.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-xs sm:text-sm font-extrabold uppercase tracking-wider flex items-center justify-center gap-2.5 transition-all shadow-xl shadow-amber-500/20 active:scale-95"
             >
               <Search className="w-4 h-4 stroke-[3]" />
               <span>🔍 KLIK UNTUK BANDINGKAN SEKARANG</span>
@@ -1109,7 +1147,7 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
           {comparisonStatus === 'analyzing' && (
             <button
               disabled
-              className="px-8 py-3.5 rounded-xl bg-sky-600/80 text-white text-xs font-bold uppercase tracking-wider flex items-center gap-2.5 cursor-wait shadow-lg"
+              className="w-full sm:w-auto px-6 sm:px-8 py-3.5 rounded-xl bg-sky-600/80 text-white text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2.5 cursor-wait shadow-lg"
             >
               <RefreshCw className="w-4 h-4 animate-spin" />
               <span>MEMERIKSA WARNA & SERAT...</span>
@@ -1121,11 +1159,11 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
               id="btn-recompare"
               onClick={handleRecompareClick}
               disabled={isRecomparing}
-              className={`px-5 py-3 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition shadow-md ${
+              className={`w-full sm:w-auto px-4 sm:px-5 py-3 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition shadow-md ${
                 isRecomparing
                   ? 'bg-studio-800 text-amber-300 border border-amber-500/40 cursor-wait'
                   : recompareSuccess
-                  ? 'bg-emerald-600 text-white border border-emerald-400 scale-105'
+                  ? 'bg-emerald-600 text-white border border-emerald-400'
                   : 'bg-studio-800 hover:bg-studio-700 text-studio-200 hover:text-white border border-studio-700 active:scale-95'
               }`}
             >
@@ -1152,7 +1190,7 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
             <button
               id="btn-open-qc-report"
               onClick={() => setIsReportModalOpen(true)}
-              className="px-5 py-3 rounded-xl bg-studio-800 hover:bg-studio-700 text-studio-200 hover:text-white border border-studio-700 text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition shadow-md active:scale-95"
+              className="w-full sm:w-auto px-4 sm:px-5 py-3 rounded-xl bg-studio-800 hover:bg-studio-700 text-studio-200 hover:text-white border border-studio-700 text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition shadow-md active:scale-95"
             >
               <Printer className="w-4 h-4 text-amber-400" />
               <span>Cetak Laporan QC</span>
@@ -1256,10 +1294,10 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
           />
 
           {/* Panel Keputusan Akhir Produk (FINAL PRODUCT DECISION - REQ-QC-002) */}
-          <div className="bg-gradient-to-r from-studio-900 via-studio-850 to-studio-900 border border-studio-800 rounded-xl p-6 flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl">
-            <div>
-              <div className="flex items-center space-x-2">
-                <h3 className="text-base font-bold text-white">
+          <div className="bg-gradient-to-r from-studio-900 via-studio-850 to-studio-900 border border-studio-800 rounded-xl p-4 sm:p-6 flex flex-col md:flex-row items-center justify-between gap-4 sm:gap-6 shadow-xl">
+            <div className="text-center md:text-left w-full md:w-auto">
+              <div className="flex items-center justify-center md:justify-start space-x-2">
+                <h3 className="text-sm sm:text-base font-bold text-white">
                   Keputusan Akhir Produk (Operator Authority)
                 </h3>
                 {productDecision && (
@@ -1280,13 +1318,13 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
             </div>
 
             {/* Tombol Keputusan Akhir */}
-            <div className="flex items-center space-x-3 shrink-0">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3 w-full md:w-auto shrink-0">
               <button
                 onClick={() => handleProductDecision('PASS')}
                 disabled={isRecomparing || evidenceStale}
-                className={`px-6 py-3 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all shadow-lg ${
+                className={`w-full sm:w-auto px-5 sm:px-6 py-3 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-lg ${
                   productDecision === 'PASS'
-                    ? 'bg-emerald-500 text-black shadow-emerald-500/30 scale-105'
+                    ? 'bg-emerald-500 text-black shadow-emerald-500/30 sm:scale-105'
                     : 'bg-studio-800 text-studio-200 hover:bg-emerald-600 hover:text-white border border-studio-700'
                 }`}
               >
@@ -1297,9 +1335,9 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
               <button
                 onClick={() => handleProductDecision('FAIL')}
                 disabled={isRecomparing || evidenceStale}
-                className={`px-6 py-3 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all shadow-lg ${
+                className={`w-full sm:w-auto px-5 sm:px-6 py-3 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-lg ${
                   productDecision === 'FAIL'
-                    ? 'bg-rose-600 text-white shadow-rose-600/30 scale-105'
+                    ? 'bg-rose-600 text-white shadow-rose-600/30 sm:scale-105'
                     : 'bg-studio-800 text-studio-200 hover:bg-rose-600 hover:text-white border border-studio-700'
                 }`}
               >

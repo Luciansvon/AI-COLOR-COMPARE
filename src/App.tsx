@@ -159,7 +159,7 @@ export const App: React.FC = () => {
       )}
 
       {/* Main Content Area */}
-      <main className="flex-1 px-6 pt-6">
+      <main className="flex-1 px-3 sm:px-6 pt-3 sm:pt-6 pb-6">
         <MainQCScreen
           key={currentMaster.id}
           currentMaster={currentMaster}
