@@ -1,0 +1,88 @@
+name: Verify Full Photo Fit Fix
+
+on:
+  push:
+    branches:
+      - fix/image-fit-full-photo-v039
+
+permissions:
+  contents: write
+
+jobs:
+  patch-test-build-windows:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: windows-latest
+    steps:
+      - name: Checkout branch fix
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Siapkan Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Siapkan Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Terapkan patch fit foto
+        run: python tools/apply_image_fit_fix.py
+
+      - name: Pastikan patch tidak memakai crop mode
+        shell: pwsh
+        run: |
+          $viewer = Get-Content "src/components/qc/InteractiveImageViewer.tsx" -Raw
+          if ($viewer -notmatch "calculateContainFit") { throw "Helper contain-fit tidak terpasang." }
+          if ($viewer -notmatch "h-\[52vh\].*min-h-\[220px\].*max-h-\[460px\]") { throw "Frame belum memiliki tinggi eksplisit untuk perhitungan fit." }
+          if ($viewer -match "max-h-\[50vh\].*sm:max-h-\[440px\]") { throw "Batas tinggi gambar lama masih aktif dan berisiko crop." }
+          if ($viewer -match "object-cover") { throw "Viewer QC tidak boleh memakai object-cover." }
+          Write-Host "PASS: viewer memakai contain-fit eksplisit dan tidak memakai object-cover."
+
+      - name: Pasang dependensi frontend
+        run: npm ci
+
+      - name: Uji frontend dan regresi image-fit
+        run: npm test
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Uji Rust core
+        run: cargo test --manifest-path src-tauri/Cargo.toml
+
+      - name: Periksa Rust core
+        run: cargo check --manifest-path src-tauri/Cargo.toml
+
+      - name: Build kandidat installer Windows EXE
+        shell: pwsh
+        run: |
+          npx --yes @tauri-apps/cli@2.11.4 build --bundles nsis
+          $installer = Get-ChildItem -Path "src-tauri/target/release/bundle/nsis" -Filter "*.exe" -File | Select-Object -First 1
+          if (-not $installer) { throw "Installer Windows kandidat v0.3.9 tidak ditemukan." }
+          New-Item -ItemType Directory -Force -Path "release-artifacts" | Out-Null
+          Copy-Item $installer.FullName "release-artifacts/Studio-Color-QC-v0.3.9-Windows-x64-Setup.exe" -Force
+          if ((Get-Item "release-artifacts/Studio-Color-QC-v0.3.9-Windows-x64-Setup.exe").Length -gt 60MB) {
+            throw "Installer standar terlalu besar; WebView2 offline kemungkinan ikut terbungkus."
+          }
+
+      - name: Simpan kandidat installer sebagai artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Studio-Color-QC-v0.3.9-Windows-x64-Candidate
+          path: release-artifacts/Studio-Color-QC-v0.3.9-Windows-x64-Setup.exe
+          if-no-files-found: error
+
+      - name: Commit patch yang sudah lolos test
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/components/qc/InteractiveImageViewer.tsx src/utils/imageFit.ts tests/image_fit.test.ts package.json package-lock.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock RELEASE_v0.3.9.md
+          if git diff --cached --quiet; then
+            echo "Tidak ada perubahan patch yang perlu di-commit."
+            exit 0
+          fi
+          git commit -m "fix(ui): tampilkan foto utuh tanpa crop pada frame QC"
+          git push origin HEAD:fix/image-fit-full-photo-v039
