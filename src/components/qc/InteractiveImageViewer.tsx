@@ -1,5 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { ROIItem, ROIBox, EstimatedRecommendation } from '../../types';
+import { calculateContainFit } from '../../utils/imageFit';
 import {
   ShieldCheck,
   Eye,
@@ -91,6 +92,11 @@ export const InteractiveImageViewer: React.FC<InteractiveImageViewerProps> = ({
   const imageWrapperRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // Ukuran dasar 100% selalu berarti seluruh foto masuk ke frame tanpa crop.
+  // Wrapper mengikuti area foto yang benar-benar terlihat supaya koordinat ROI tetap presisi.
+  const [naturalSize, setNaturalSize] = useState({ width: 0, height: 0 });
+  const [fitSize, setFitSize] = useState<{ width: number; height: number } | null>(null);
+
   const [isDraggingFile, setIsDraggingFile] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const inputId = isMaster ? 'master-file-input' : 'product-file-input';
@@ -120,7 +126,40 @@ export const InteractiveImageViewer: React.FC<InteractiveImageViewerProps> = ({
     setZoomLevel(1.0);
     setPanOffset({ x: 0, y: 0 });
     setDrawingBox(null);
+    setNaturalSize({ width: 0, height: 0 });
+    setFitSize(null);
   }, [imageSrc]);
+
+  // Hitung ukuran contain secara eksplisit. CSS object-contain saja tidak cukup karena
+  // frame punya batas tinggi dan overflow-hidden pada WebView Windows/Android.
+  useEffect(() => {
+    if (!imageSrc || !containerRef.current || naturalSize.width <= 0 || naturalSize.height <= 0) return;
+
+    const container = containerRef.current;
+    const updateFit = () => {
+      const style = window.getComputedStyle(container);
+      const paddingX = Number.parseFloat(style.paddingLeft || '0') + Number.parseFloat(style.paddingRight || '0');
+      const paddingY = Number.parseFloat(style.paddingTop || '0') + Number.parseFloat(style.paddingBottom || '0');
+      const availableWidth = Math.max(1, container.clientWidth - paddingX);
+      const availableHeight = Math.max(1, container.clientHeight - paddingY);
+      const next = calculateContainFit(naturalSize.width, naturalSize.height, availableWidth, availableHeight);
+
+      setFitSize((prev) => {
+        if (prev && Math.abs(prev.width - next.width) < 0.5 && Math.abs(prev.height - next.height) < 0.5) return prev;
+        return next;
+      });
+    };
+
+    updateFit();
+    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(updateFit) : null;
+    observer?.observe(container);
+    window.addEventListener('resize', updateFit);
+
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener('resize', updateFit);
+    };
+  }, [imageSrc, naturalSize.width, naturalSize.height]);
 
   // Handler Zoom
   const handleZoomIn = () => {
@@ -718,7 +757,7 @@ export const InteractiveImageViewer: React.FC<InteractiveImageViewerProps> = ({
         onTouchStart={handleTouchStartContainer}
         className={`relative w-full ${
           imageSrc
-            ? 'min-h-[220px] max-h-[52vh] sm:max-h-[460px] py-1'
+            ? 'h-[52vh] min-h-[220px] max-h-[460px] py-1'
             : 'h-[180px] sm:h-[240px]'
         } bg-studio-950 flex items-center justify-center overflow-hidden select-none touch-none ${
           toolMode === 'draw'
@@ -733,6 +772,8 @@ export const InteractiveImageViewer: React.FC<InteractiveImageViewerProps> = ({
             ref={imageWrapperRef}
             className="relative inline-flex items-center justify-center max-w-full max-h-full touch-none"
             style={{
+              width: fitSize ? `${fitSize.width}px` : undefined,
+              height: fitSize ? `${fitSize.height}px` : undefined,
               transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoomLevel})`,
               transformOrigin: 'center center',
               transition: dragState ? 'none' : 'transform 0.1s ease-out',
@@ -741,7 +782,14 @@ export const InteractiveImageViewer: React.FC<InteractiveImageViewerProps> = ({
             <img
               src={imageSrc}
               alt={title}
-              className="max-w-full max-h-[50vh] sm:max-h-[440px] w-auto h-auto block object-contain pointer-events-none select-none"
+              className="max-w-full max-h-full w-auto h-auto block object-contain pointer-events-none select-none"
+              style={fitSize ? { width: '100%', height: '100%' } : undefined}
+              onLoad={(event) => {
+                const { naturalWidth, naturalHeight } = event.currentTarget;
+                if (naturalWidth > 0 && naturalHeight > 0) {
+                  setNaturalSize({ width: naturalWidth, height: naturalHeight });
+                }
+              }}
               draggable={false}
             />
 
