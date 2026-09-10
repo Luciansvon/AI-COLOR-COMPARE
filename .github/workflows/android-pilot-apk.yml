@@ -79,12 +79,12 @@ jobs:
           fi
           echo "APK Ditemukan: $APK_FILE"
           mkdir -p artifacts
-          cp "$APK_FILE" artifacts/Studio-Color-QC-v0.3.8-Android-Pilot.apk
+          cp "$APK_FILE" artifacts/Studio-Color-QC-v0.3.10-Android-Pilot.apk
           ls -lh artifacts/
 
       - name: Unggah Artefak APK Android
         uses: actions/upload-artifact@v4
         with:
           name: Studio-Color-QC-Android-Pilot-APK
-          path: artifacts/Studio-Color-QC-v0.3.8-Android-Pilot.apk
+          path: artifacts/Studio-Color-QC-v0.3.10-Android-Pilot.apk
           retention-days: 14

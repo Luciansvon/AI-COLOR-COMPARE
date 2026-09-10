@@ -1,6 +1,6 @@
-# Studio Color QC v0.3.10 — Portrait Photo Fit & Windows Defender Fix
+# Studio Color QC v0.3.10 — Portrait Photo Fit, Windows Defender Fix & Android Pilot APK
 
-Rilis ini mengatasi masalah foto portrait yang terpotong serta menghilangkan peringatan Windows Defender pada installer Windows.
+Rilis ini mengatasi masalah foto portrait yang terpotong, menghilangkan peringatan Windows Defender pada installer Windows, serta menerbitkan paket aplikasi Android Pilot v0.3.10.
 
 ## Perbaikan Utama
 
@@ -14,6 +14,11 @@ Rilis ini mengatasi masalah foto portrait yang terpotong serta menghilangkan per
    - Menyediakan skrip otomatisasi `tools/sign_windows_binary.ps1` untuk menandatangani berkas installer dan executable Windows menggunakan sertifikat digital Authenticode.
    - Membersihkan stream internet (*Zone.Identifier* dan *SmartScreen*) menggunakan `Unblock-File` sehingga installer tidak lagi dicegat oleh Windows Defender SmartScreen di komputer studio.
 
+3. **Ketersediaan Paket Multi-Platform**:
+   - **Windows Standar (Ringan)**: `Studio-Color-QC-v0.3.10-Windows-x64-Setup.exe` (< 60MB).
+   - **Windows Offline Penuh**: `Studio-Color-QC-v0.3.10-Windows-x64-Offline-Full-Setup.exe` (Termasuk runtime WebView2 lengkap untuk workstation tanpa koneksi internet).
+   - **Android Pilot APK**: `Studio-Color-QC-v0.3.10-Android-Pilot.apk` (Dukungan arsitektur `aarch64` untuk uji coba operator studio di perangkat seluler).
+
 ## Verifikasi & Kepatuhan DEV-INFRA
 
 - `npm test`: Seluruh 29 unit test sains warna, guardrail non-destruktif, bridge SQLite, dan regresi fit foto rasio portrait 1200×1800 lulus 100%.
@@ -22,3 +27,4 @@ Rilis ini mengatasi masalah foto portrait yang terpotong serta menghilangkan per
 - Uji render browser Edge (Playwright): Bounding box foto nakas 1200×1800 terbukti berada di dalam batas tinggi kontainer (301.3 × 452 piksel di dalam kontainer 460 piksel).
 - Uji install lokal: Berhasil diinstall dan terverifikasi di registry Windows sebagai versi `v0.3.10`.
 - Ikon Desktop: Shortcut `Studio Color QC.lnk` terpasang dan mengarah ke executable `v0.3.10`.
+- B.I.M.A Shared Infra Audit: Lolos 100% (215 berkas diaudit, 0 temuan pelanggaran).

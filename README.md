@@ -8,39 +8,32 @@
 
 ---
 
-## ⚠️ Status Release v0.3.8
+## 📦 Status Release v0.3.10
 
-**v0.3.8 berhasil dibuild dan dipublikasikan, tetapi saat ini BLOCKED untuk rollout production di studio.**
+**v0.3.10 memuat perbaikan tampilan foto portrait utuh (tanpa crop), sertifikat digital Windows Authenticode, dan paket Android Pilot APK.**
 
-Pengujian nyata menemukan bug P0 pada klasifikasi permukaan: **permukaan kayu yang jelas berserat dapat salah dibaca sebagai `Permukaan halus` / tanpa serat**. Sampai bug false-smooth ini diperbaiki dan regression test foto studio nyata lolos, jangan memakai hasil klasifikasi tekstur v0.3.8 sebagai dasar keputusan QC production.
+Perbaikan utama:
+- **Viewer Foto Pas Utuh**: Foto berorientasi portrait (seperti rasio 2:3 nakas studio 1200×1800) tampil pas 100% di dalam layar tanpa terpotong ujung atas dan bawahnya.
+- **Sertifikat Digital Studio**: Skrip `tools/sign_windows_binary.ps1` dan pembersihan stream internet menghilangkan peringatan Windows Defender SmartScreen.
+- **Dukungan Multi-Platform**: Menyediakan installer Windows (standar dan offline full) serta paket APK Android Pilot v0.3.10.
 
-Yang tetap valid untuk diuji:
+Audit lengkap: [`docs/audits/RELEASE_AUDIT_v0.3.10.md`](docs/audits/RELEASE_AUDIT_v0.3.10.md)
 
-- analisis warna/Lab/ΔE00;
-- analisis RGB operator;
-- preview koreksi warna;
-- batch export;
-- upgrade installer;
-- workflow dan build Windows.
-
-Audit lengkap: [`docs/audits/RELEASE_AUDIT_v0.3.8.md`](docs/audits/RELEASE_AUDIT_v0.3.8.md)
-
-Release notes: [`RELEASE_v0.3.8.md`](RELEASE_v0.3.8.md)
+Release notes: [`RELEASE_v0.3.10.md`](RELEASE_v0.3.10.md)
 
 ---
 
-## 📦 Installer Windows v0.3.8
+## 📦 Paket Instalasi v0.3.10
 
-Release menyediakan dua installer x64 dengan fungsi berbeda:
+Release menyediakan tiga paket instalasi:
 
-| Installer | Ukuran | Kapan dipakai |
-|---|---:|---|
-| `Studio-Color-QC-v0.3.8-Windows-x64-Setup.exe` | ~5.1 MiB | PC online atau PC yang sudah memiliki WebView2 Runtime. Jika WebView2 belum ada, installer memakai bootstrap download. |
-| `Studio-Color-QC-v0.3.8-Windows-x64-Offline-Full-Setup.exe` | ~255 MiB | PC studio offline. WebView2 Runtime ikut dibundel. |
+| Paket | Platform | Ukuran | Kapan dipakai |
+|---|---|---:|---|
+| `Studio-Color-QC-v0.3.10-Windows-x64-Setup.exe` | Windows x64 | ~5.3 MiB | PC online atau PC yang sudah memiliki WebView2 Runtime. |
+| `Studio-Color-QC-v0.3.10-Windows-x64-Offline-Full-Setup.exe` | Windows x64 | ~255 MiB | PC studio workstation tanpa koneksi internet. WebView2 Runtime dibundel offline. |
+| `Studio-Color-QC-v0.3.10-Android-Pilot.apk` | Android aarch64 | ~160 MiB | Perangkat seluler Android operator studio. |
 
-Keduanya memakai NSIS `currentUser`, product name `Studio Color QC`, identifier `com.studio.colorqc`, dan versi baru menimpa instalasi lama di lokasi yang sama. Workflow v0.3.8 sudah menguji upgrade `v0.3.7 → v0.3.8` dan memastikan registry hanya memiliki satu instalasi versi `0.3.8`.
-
-> Catatan penting: workflow saat ini baru membuktikan build Offline Full berhasil. Instalasi + launch Offline Full pada PC studio nyata tetap wajib dites manual.
+Keduanya memakai NSIS `currentUser`, product name `Studio Color QC`, identifier `com.studio.colorqc`, dan versi baru menimpa instalasi lama secara bersih di lokasi yang sama.
 
 ---
 
