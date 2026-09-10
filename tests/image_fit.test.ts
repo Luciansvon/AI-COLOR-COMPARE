@@ -21,6 +21,12 @@ const ultraTall = calculateContainFit(1000, 8000, 650, 440);
 assert.ok(ultraTall.width <= 650);
 assert.ok(nearly(ultraTall.height, 440));
 
+const portraitStudioNakas = calculateContainFit(1200, 1800, 626, 452);
+assert.ok(portraitStudioNakas.width <= 626);
+assert.ok(portraitStudioNakas.height <= 452);
+assert.ok(nearly(portraitStudioNakas.width / portraitStudioNakas.height, 1200 / 1800));
+assert.ok(nearly(portraitStudioNakas.height, 452));
+
 const small = calculateContainFit(320, 200, 650, 440);
 assert.deepEqual(small, { width: 320, height: 200 });
 

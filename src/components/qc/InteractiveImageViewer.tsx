@@ -91,6 +91,7 @@ export const InteractiveImageViewer: React.FC<InteractiveImageViewerProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageWrapperRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const imgRef = useRef<HTMLImageElement>(null);
 
   // Ukuran dasar 100% selalu berarti seluruh foto masuk ke frame tanpa crop.
   // Wrapper mengikuti area foto yang benar-benar terlihat supaya koordinat ROI tetap presisi.
@@ -121,45 +122,67 @@ export const InteractiveImageViewer: React.FC<InteractiveImageViewerProps> = ({
   const selectedRoiIdRef = useRef(selectedRoiId);
   selectedRoiIdRef.current = selectedRoiId;
 
-  // Reset zoom & pan saat gambar berganti
+  // Hitung ukuran contain secara eksplisit.
+  const recalculateFit = (nw?: number, nh?: number) => {
+    const width = nw ?? naturalSize.width ?? imgRef.current?.naturalWidth ?? 0;
+    const height = nh ?? naturalSize.height ?? imgRef.current?.naturalHeight ?? 0;
+    if (width <= 0 || height <= 0 || !containerRef.current) return;
+
+    const container = containerRef.current;
+    const style = window.getComputedStyle(container);
+    const paddingX = Number.parseFloat(style.paddingLeft || '0') + Number.parseFloat(style.paddingRight || '0');
+    const paddingY = Number.parseFloat(style.paddingTop || '0') + Number.parseFloat(style.paddingBottom || '0');
+    const availableWidth = Math.max(1, container.clientWidth - paddingX);
+    const availableHeight = Math.max(1, container.clientHeight - paddingY);
+    const next = calculateContainFit(width, height, availableWidth, availableHeight);
+
+    setFitSize((prev) => {
+      if (prev && Math.abs(prev.width - next.width) < 0.5 && Math.abs(prev.height - next.height) < 0.5) return prev;
+      return next;
+    });
+  };
+
+  // Reset zoom & pan saat gambar berganti, tapi langsung hitung ukuran jika gambar sudah siap
   useEffect(() => {
     setZoomLevel(1.0);
     setPanOffset({ x: 0, y: 0 });
     setDrawingBox(null);
-    setNaturalSize({ width: 0, height: 0 });
-    setFitSize(null);
+
+    const img = imgRef.current;
+    if (img && img.complete && img.naturalWidth > 0 && img.naturalHeight > 0) {
+      setNaturalSize({ width: img.naturalWidth, height: img.naturalHeight });
+      recalculateFit(img.naturalWidth, img.naturalHeight);
+    } else {
+      setNaturalSize({ width: 0, height: 0 });
+      setFitSize(null);
+    }
   }, [imageSrc]);
 
-  // Hitung ukuran contain secara eksplisit. CSS object-contain saja tidak cukup karena
-  // frame punya batas tinggi dan overflow-hidden pada WebView Windows/Android.
+  // Pantau perubahan ukuran jendela/container untuk memperbarui fitSize
   useEffect(() => {
-    if (!imageSrc || !containerRef.current || naturalSize.width <= 0 || naturalSize.height <= 0) return;
+    if (!imageSrc || !containerRef.current) return;
 
     const container = containerRef.current;
-    const updateFit = () => {
-      const style = window.getComputedStyle(container);
-      const paddingX = Number.parseFloat(style.paddingLeft || '0') + Number.parseFloat(style.paddingRight || '0');
-      const paddingY = Number.parseFloat(style.paddingTop || '0') + Number.parseFloat(style.paddingBottom || '0');
-      const availableWidth = Math.max(1, container.clientWidth - paddingX);
-      const availableHeight = Math.max(1, container.clientHeight - paddingY);
-      const next = calculateContainFit(naturalSize.width, naturalSize.height, availableWidth, availableHeight);
+    const onResize = () => recalculateFit();
 
-      setFitSize((prev) => {
-        if (prev && Math.abs(prev.width - next.width) < 0.5 && Math.abs(prev.height - next.height) < 0.5) return prev;
-        return next;
-      });
-    };
-
-    updateFit();
-    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(updateFit) : null;
+    onResize();
+    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(onResize) : null;
     observer?.observe(container);
-    window.addEventListener('resize', updateFit);
+    window.addEventListener('resize', onResize);
 
     return () => {
       observer?.disconnect();
-      window.removeEventListener('resize', updateFit);
+      window.removeEventListener('resize', onResize);
     };
   }, [imageSrc, naturalSize.width, naturalSize.height]);
+
+  const handleImageLoad = (event: React.SyntheticEvent<HTMLImageElement>) => {
+    const { naturalWidth, naturalHeight } = event.currentTarget;
+    if (naturalWidth > 0 && naturalHeight > 0) {
+      setNaturalSize({ width: naturalWidth, height: naturalHeight });
+      recalculateFit(naturalWidth, naturalHeight);
+    }
+  };
 
   // Handler Zoom
   const handleZoomIn = () => {
@@ -774,22 +797,20 @@ export const InteractiveImageViewer: React.FC<InteractiveImageViewerProps> = ({
             style={{
               width: fitSize ? `${fitSize.width}px` : undefined,
               height: fitSize ? `${fitSize.height}px` : undefined,
+              maxWidth: '100%',
+              maxHeight: '100%',
               transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoomLevel})`,
               transformOrigin: 'center center',
               transition: dragState ? 'none' : 'transform 0.1s ease-out',
             }}
           >
             <img
+              ref={imgRef}
               src={imageSrc}
               alt={title}
               className="max-w-full max-h-full w-auto h-auto block object-contain pointer-events-none select-none"
-              style={fitSize ? { width: '100%', height: '100%' } : undefined}
-              onLoad={(event) => {
-                const { naturalWidth, naturalHeight } = event.currentTarget;
-                if (naturalWidth > 0 && naturalHeight > 0) {
-                  setNaturalSize({ width: naturalWidth, height: naturalHeight });
-                }
-              }}
+              style={fitSize ? { width: '100%', height: '100%' } : { maxWidth: '100%', maxHeight: '100%' }}
+              onLoad={handleImageLoad}
               draggable={false}
             />
 

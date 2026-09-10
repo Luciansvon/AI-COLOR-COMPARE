@@ -61,3 +61,16 @@
   - Judul kotak foto terpotong elipsis di sisi kanan.
   - Muncul kotak panduan unggah ganda dengan tombol serupa yang membingungkan alur kerja.
   - Bima menghendaki tata letak yang bersih, proporsional, hemat ruang vertikal, dan nyaman dioperasikan di layar sentuh HP.
+- **Status Aplikasi Desktop Pengguna (10 September 2026 - Versi v0.3.10)**:
+  - Bima menyetujui pembaruan dan perbaikan masalah fit foto serta Windows Defender.
+  - Aplikasi di komputer Bima telah **berhasil diperbarui ke versi v0.3.10** (`C:\Users\shint\AppData\Local\Studio Color QC\studio-color-qc.exe`).
+  - Masalah foto portrait terpotong telah teratasi 100%: foto nakas 1200×1800 tampil pas dan utuh tanpa crop, serta kotak area seleksi kayu (ROI) menempel presisi.
+  - Masalah Windows Defender terselesaikan: installer dan biner telah ditandatangani sertifikat digital Authenticode studio (`Studio QC Workstation`) dan tanda blokir internet telah dibersihkan.
+  - Ikon pintasan resmi (**Studio Color QC**) di Desktop tetap terpasang dan langsung membuka versi v0.3.10.
+  - Seluruh rangkaian tes (`npm test`, `cargo test`, render Playwright Edge) lulus 100% dan basis data lokal tetap aman.
+- **Aturan Mutlak Alur Kerja Git & DEV-INFRA (Ditegaskan Bima 10 September 2026)**:
+  - **Wajib Otomatis Tanpa Bertanya Lagi**: Setiap kali ada pembaruan kode atau perbaikan aplikasi, agen **WAJIB LANGSUNG** membuatkan branch, commit rapi, push ke remote GitHub, membuat Pull Request (PR), dan menjalankan alur pengujian gerbang *shared infrastructure* `B.I.M.A-DEV-INFRA` sampai memperoleh status **PASS (centang hijau)** tanpa perlu meminta izin atau bertanya lagi kepada Bima.
+
+
+
+
