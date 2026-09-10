@@ -1,6 +1,6 @@
 [package]
 name = "studio-color-qc"
-version = "0.3.9"
+version = "0.3.10"
 description = "Studio Color Consistency & Material QC System"
 authors = ["Studio Workstation"]
 edition = "2021"
