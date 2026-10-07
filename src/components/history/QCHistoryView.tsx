@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { QCRecord } from '../../types';
 import { History, X, CheckCircle2, XCircle, FileText, Download } from 'lucide-react';
 import { useModalAccessibility } from '../common/useModalAccessibility';
+import { isAndroidTauriEnvironment, saveBlobToAndroid } from '../../services/androidExports';
 
 interface QCHistoryViewProps {
   isOpen: boolean;
@@ -15,18 +16,44 @@ export const QCHistoryView: React.FC<QCHistoryViewProps> = ({
   onClose,
   records,
 }) => {
+  const [exportMessage, setExportMessage] = useState('');
+  const [exportError, setExportError] = useState('');
+  const [isExporting, setIsExporting] = useState(false);
   const dialogRef = useModalAccessibility(isOpen, onClose);
 
   if (!isOpen) return null;
 
-  const exportHistoryJson = () => {
-    const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(records, null, 2));
-    const downloadAnchor = document.createElement('a');
-    downloadAnchor.setAttribute('href', dataStr);
-    downloadAnchor.setAttribute('download', `studio_qc_history_${Date.now()}.json`);
-    document.body.appendChild(downloadAnchor);
-    downloadAnchor.click();
-    downloadAnchor.remove();
+  const exportHistoryJson = async () => {
+    if (isExporting) return;
+    setIsExporting(true);
+    setExportMessage('');
+    setExportError('');
+    const fileName = `studio_qc_history_${Date.now()}.json`;
+    const blob = new Blob([JSON.stringify(records, null, 2)], { type: 'application/json' });
+    try {
+      if (isAndroidTauriEnvironment()) {
+        const result = await saveBlobToAndroid(blob, fileName, 'application/json', undefined, () => {
+          setExportMessage('Pilih lokasi berkas riwayat pada Android. Penyimpanan dikonfirmasi setelah baca-balik selesai.');
+        });
+        setExportMessage(result.status === 'saved'
+          ? `JSON tersimpan dan diverifikasi: ${result.fileName} (${result.bytesWritten?.toLocaleString('id-ID')} bita).`
+          : 'Penyimpanan JSON dibatalkan. Tidak ada berkas yang dinyatakan tersimpan.');
+      } else {
+        const dataStr = URL.createObjectURL(blob);
+        const downloadAnchor = document.createElement('a');
+        downloadAnchor.setAttribute('href', dataStr);
+        downloadAnchor.setAttribute('download', fileName);
+        document.body.appendChild(downloadAnchor);
+        downloadAnchor.click();
+        downloadAnchor.remove();
+        URL.revokeObjectURL(dataStr);
+        setExportMessage(`Permintaan unduh JSON dikirim: ${fileName}.`);
+      }
+    } catch (cause) {
+      setExportError(cause instanceof Error ? cause.message : 'Ekspor riwayat JSON gagal. Coba lagi.');
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   return (
@@ -57,7 +84,8 @@ export const QCHistoryView: React.FC<QCHistoryViewProps> = ({
             {records.length > 0 && (
               <button
                 onClick={exportHistoryJson}
-                className="px-3 py-1.5 rounded-lg bg-studio-800 hover:bg-studio-700 text-studio-200 text-xs font-semibold flex items-center gap-1.5 border border-studio-700 transition"
+                disabled={isExporting}
+                className="px-3 py-1.5 rounded-lg bg-studio-800 hover:bg-studio-700 text-studio-200 text-xs font-semibold flex items-center gap-1.5 border border-studio-700 transition disabled:opacity-50"
               >
                 <Download className="w-3.5 h-3.5 text-amber-400" />
                 Ekspor JSON
@@ -68,6 +96,10 @@ export const QCHistoryView: React.FC<QCHistoryViewProps> = ({
             </button>
           </div>
         </div>
+
+        {(exportMessage || exportError) && <p role={exportError ? 'alert' : 'status'} className={`px-4 py-2 text-xs ${exportError ? 'text-rose-300' : 'text-emerald-300'}`}>
+          {exportError || exportMessage}
+        </p>}
 
         {/* Daftar Riwayat */}
         <div className="p-4 overflow-y-auto flex-1 space-y-3">

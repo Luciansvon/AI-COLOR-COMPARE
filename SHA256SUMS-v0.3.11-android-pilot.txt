@@ -1,0 +1,3 @@
+8a136451684ea4b75fc249f6036a33959085bb0716926f765382cc38695d84d0  Studio-Color-QC-v0.3.11-Android-Pilot.apk
+ec02854aa582fca55e2c38eb3f7c140b86f1d2c91a48765ffd9b78aae5e158a5  RELEASE_v0.3.11-android-pilot.md
+c5bdfc5957bce12426f5f527611fb4901c751cd9627adde4ce5bd91d90dde5fe  RELEASE_EVIDENCE_v0.3.11-android-pilot.md

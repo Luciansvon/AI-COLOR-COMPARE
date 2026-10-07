@@ -6,7 +6,7 @@ interface DecisionModalProps {
   isOpen: boolean;
   onClose: () => void;
   targetName: string; // Misal: "Produk Dining Chair" atau "Area Rangka Kayu"
-  onConfirmFail: (reasons: string[], note: string) => void;
+  onConfirmFail: (reasons: string[], note: string) => Promise<boolean> | boolean;
 }
 
 const FAIL_REASONS = [
@@ -28,18 +28,24 @@ export const DecisionModal: React.FC<DecisionModalProps> = ({
 }) => {
   const [selectedReasons, setSelectedReasons] = useState<string[]>([]);
   const [note, setNote] = useState('');
-  const dialogRef = useModalAccessibility(isOpen, onClose);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const closeIfIdle = () => { if (!isSaving) onClose(); };
+  const dialogRef = useModalAccessibility(isOpen, closeIfIdle);
 
   useEffect(() => {
     if (!isOpen) {
       setSelectedReasons([]);
       setNote('');
+      setSaveError('');
     }
   }, [isOpen]);
 
   if (!isOpen) return null;
 
   const toggleReason = (reason: string) => {
+    if (isSaving) return;
+    setSaveError('');
     if (selectedReasons.includes(reason)) {
       setSelectedReasons(selectedReasons.filter((r) => r !== reason));
     } else {
@@ -47,16 +53,29 @@ export const DecisionModal: React.FC<DecisionModalProps> = ({
     }
   };
 
-  const handleConfirm = () => {
-    if (selectedReasons.length === 0) return;
-    onConfirmFail(selectedReasons, note);
-    setSelectedReasons([]);
-    setNote('');
-    onClose();
+  const handleConfirm = async () => {
+    if (selectedReasons.length === 0 || isSaving) return;
+    setIsSaving(true);
+    setSaveError('');
+    try {
+      const saved = await onConfirmFail(selectedReasons, note);
+      if (!saved) {
+        setSaveError('Keputusan belum tersimpan. Alasan dan catatan tetap tersedia; coba simpan lagi.');
+        setIsSaving(false);
+        return;
+      }
+      setSelectedReasons([]);
+      setNote('');
+      setIsSaving(false);
+      onClose();
+    } catch {
+      setSaveError('Keputusan gagal disimpan. Alasan dan catatan tetap tersedia; coba lagi.');
+      setIsSaving(false);
+    }
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4" onMouseDown={(event) => event.target === event.currentTarget && closeIfIdle()}>
       <div
         ref={dialogRef}
         role="dialog"
@@ -78,7 +97,8 @@ export const DecisionModal: React.FC<DecisionModalProps> = ({
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={closeIfIdle}
+            disabled={isSaving}
             aria-label="Tutup pencatatan alasan gagal"
             className="p-1 rounded text-studio-400 hover:text-white hover:bg-studio-800"
           >
@@ -109,6 +129,7 @@ export const DecisionModal: React.FC<DecisionModalProps> = ({
                   type="checkbox"
                   checked={isChecked}
                   onChange={() => toggleReason(reason)}
+                  disabled={isSaving}
                   className="sr-only"
                 />
                 <div
@@ -133,6 +154,7 @@ export const DecisionModal: React.FC<DecisionModalProps> = ({
             id="fail-operator-note"
             value={note}
             onChange={(e) => setNote(e.target.value)}
+            disabled={isSaving}
             placeholder="Contoh: Perbedaan terlihat jelas pada bagian sambungan bawah dekat kaki kursi..."
             rows={2}
             className="w-full bg-studio-950 border border-studio-800 rounded-lg p-2.5 text-xs text-studio-100 placeholder:text-studio-600 focus:outline-none focus:border-rose-500"
@@ -140,20 +162,22 @@ export const DecisionModal: React.FC<DecisionModalProps> = ({
         </div>
 
         {/* Tombol Aksi */}
+        {saveError && <p role="alert" className="text-xs text-rose-300">{saveError}</p>}
         <div className="flex items-center justify-end space-x-2 pt-2 border-t border-studio-800">
           <button
             type="button"
-            onClick={onClose}
+            onClick={closeIfIdle}
+            disabled={isSaving}
             className="px-4 py-2 rounded-lg text-xs text-studio-300 hover:text-white hover:bg-studio-800 transition"
           >
             Batal
           </button>
           <button
-            disabled={selectedReasons.length === 0}
-            onClick={handleConfirm}
+            disabled={selectedReasons.length === 0 || isSaving}
+            onClick={() => { void handleConfirm(); }}
             className="px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs font-semibold shadow-lg shadow-rose-600/20 transition"
           >
-            Konfirmasi Keputusan FAIL
+            {isSaving ? 'Menyimpan...' : 'Konfirmasi Keputusan FAIL'}
           </button>
         </div>
       </div>

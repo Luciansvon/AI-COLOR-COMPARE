@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Download, LoaderCircle, X } from 'lucide-react';
 import type { CorrectionParams } from '../../types';
 import { createBatchExport, validateBatch, MAX_BATCH_PHOTOS, BatchProgress } from '../../services/batchExport';
+import { isAndroidTauriEnvironment, saveBlobToAndroid } from '../../services/androidExports';
 
 interface BatchExportPanelProps {
   referenceSource: string;
@@ -14,6 +15,8 @@ export const BatchExportPanel: React.FC<BatchExportPanelProps> = ({ referenceSou
   const [progress, setProgress] = useState<BatchProgress | null>(null);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [transferPercent, setTransferPercent] = useState<number | null>(null);
+  const [waitingForDestination, setWaitingForDestination] = useState(false);
   const running = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -21,6 +24,8 @@ export const BatchExportPanel: React.FC<BatchExportPanelProps> = ({ referenceSou
     setProgress(null);
     setMessage('');
     setError('');
+    setTransferPercent(null);
+    setWaitingForDestination(false);
     return () => { running.current?.abort(); running.current = null; };
   }, [referenceSource, referenceName]);
 
@@ -30,6 +35,8 @@ export const BatchExportPanel: React.FC<BatchExportPanelProps> = ({ referenceSou
     running.current = controller;
     setError('');
     setMessage('');
+    setTransferPercent(null);
+    setWaitingForDestination(false);
     setProgress({ completed: 0, total: photos.length + 1, name: referenceName });
     try {
       const result = await createBatchExport([
@@ -39,13 +46,30 @@ export const BatchExportPanel: React.FC<BatchExportPanelProps> = ({ referenceSou
         if (running.current === controller && !controller.signal.aborted) setProgress(value);
       } });
       if (controller.signal.aborted || running.current !== controller) return;
-      const url = URL.createObjectURL(result.blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = result.filename;
-      link.click();
-      setTimeout(() => URL.revokeObjectURL(url), 60_000);
-      setMessage(`ZIP berisi ${photos.length + 1} foto dan catatan koreksi siap diunduh. Periksa folder unduhan.`);
+      if (isAndroidTauriEnvironment()) {
+        const saved = await saveBlobToAndroid(result.blob, result.filename, 'application/zip', (completed, total) => {
+          if (running.current !== controller || controller.signal.aborted) return;
+          setWaitingForDestination(false);
+          setTransferPercent(Math.floor((completed / total) * 100));
+        }, () => {
+          if (running.current === controller) {
+            setTransferPercent(null);
+            setWaitingForDestination(true);
+          }
+        }, controller.signal);
+        if (controller.signal.aborted || running.current !== controller) return;
+        setMessage(saved.status === 'saved'
+          ? `ZIP tersimpan dan diverifikasi: ${saved.fileName} (${saved.bytesWritten?.toLocaleString('id-ID')} bita).`
+          : 'Penyimpanan ZIP dibatalkan. Tidak ada ZIP yang dinyatakan tersimpan.');
+      } else {
+        const url = URL.createObjectURL(result.blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = result.filename;
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(url), 60_000);
+        setMessage(`ZIP berisi ${photos.length + 1} foto dan catatan koreksi siap diunduh. Periksa folder unduhan.`);
+      }
     } catch (cause) {
       if (running.current !== controller) return;
       if (controller.signal.aborted) setMessage('Ekspor dibatalkan. Foto asli tetap tersedia.');
@@ -54,6 +78,8 @@ export const BatchExportPanel: React.FC<BatchExportPanelProps> = ({ referenceSou
       if (running.current === controller) {
         running.current = null;
         setProgress(null);
+        setTransferPercent(null);
+        setWaitingForDestination(false);
       }
     }
   };
@@ -99,11 +125,21 @@ export const BatchExportPanel: React.FC<BatchExportPanelProps> = ({ referenceSou
         <button type="button" onClick={exportBatch} disabled={!photos.length || progress !== null}
           className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-black text-xs font-semibold flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed">
           {progress ? <LoaderCircle className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-          {progress ? `Memproses ${progress.completed}/${progress.total} foto` : `Ekspor Acuan + ${photos.length} Foto ke ZIP`}
+          {waitingForDestination
+            ? 'Pilih lokasi penyimpanan Android...'
+            : transferPercent !== null
+              ? `Menulis ZIP ${transferPercent}%...`
+              : progress ? `Memproses ${progress.completed}/${progress.total} foto` : `Ekspor Acuan + ${photos.length} Foto ke ZIP`}
         </button>
-        {progress && <button type="button" className="text-xs text-studio-300 hover:text-white" onClick={() => running.current?.abort()}>Batalkan</button>}
+        {progress && !waitingForDestination && <button type="button" className="text-xs text-studio-300 hover:text-white" onClick={() => running.current?.abort()}>Batalkan</button>}
       </div>
-      {progress && <p role="status" className="text-xs text-studio-400 break-all">{progress.name} · Koreksi batch dikunci saat ekspor dimulai.</p>}
+      {progress && <p role="status" className="text-xs text-studio-400 break-all">
+        {waitingForDestination
+          ? 'Gunakan tombol Batal di pemilih Android untuk membatalkan penyimpanan.'
+          : transferPercent !== null
+            ? `Mengirim berkas ZIP melalui potongan kecil (${transferPercent}%). Foto asli tetap utuh.`
+            : `${progress.name} · Koreksi batch dikunci saat ekspor dimulai.`}
+      </p>}
       {message && <p role="status" className="text-xs text-emerald-300">{message}</p>}
       {error && <p role="alert" className="text-xs text-rose-300">{error}</p>}
     </section>

@@ -1,18 +1,19 @@
 {
   "name": "ai-color-compare",
   "private": true,
-  "version": "0.3.10",
+  "version": "0.3.11",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "test": "tsx tests/run_tests.ts && tsx tests/non_destructive.test.ts && tsx tests/tauri_bridge.test.ts && tsx tests/measurement_guardrails.test.ts && tsx tests/evidence_copy_guardrails.test.ts && tsx tests/rgb_analysis.test.ts && tsx tests/operator_audit.test.tsx && tsx tests/correction_preview.test.ts && tsx tests/correction_flow.test.tsx && tsx tests/batch_export.test.ts && tsx tests/smooth_surface_and_color.test.ts && tsx tests/image_fit.test.ts",
+    "test": "tsx tests/run_tests.ts && tsx tests/non_destructive.test.ts && tsx tests/tauri_bridge.test.ts && tsx tests/measurement_guardrails.test.ts && tsx tests/evidence_copy_guardrails.test.ts && tsx tests/rgb_analysis.test.ts && tsx tests/operator_audit.test.tsx && tsx tests/correction_preview.test.ts && tsx tests/correction_flow.test.tsx && tsx tests/batch_export.test.ts && tsx tests/smooth_surface_and_color.test.ts && tsx tests/image_fit.test.ts && tsx tests/android_audit_regressions.test.tsx && tsx tests/android_export_bridge.test.ts && tsx tests/preview_resolution_guardrails.test.ts",
     "test:browser": "node tests/test_browser.mjs",
     "desktop:dev": "tauri dev",
     "desktop:build": "tauri build",
     "tauri": "tauri",
-    "android:build": "tauri android build --apk --debug --target aarch64"
+    "android:build": "tauri android build --apk --debug --target aarch64",
+    "android:build:release": "tauri android build --apk --target aarch64"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.11.1",

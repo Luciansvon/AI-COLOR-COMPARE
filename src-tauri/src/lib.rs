@@ -14,6 +14,105 @@ use std::sync::Mutex;
 use storage::db::Database;
 use tauri::Manager;
 
+#[cfg(target_os = "android")]
+struct AndroidIoState(tauri::plugin::PluginHandle<tauri::Wry>);
+
+fn android_io_plugin() -> tauri::plugin::TauriPlugin<tauri::Wry> {
+    tauri::plugin::Builder::<tauri::Wry>::new("android_io")
+        .setup(|app, api| {
+            #[cfg(target_os = "android")]
+            {
+                let handle = api.register_android_plugin("com.studio.colorqc", "AndroidIoPlugin")?;
+                app.manage(AndroidIoState(handle));
+            }
+            #[cfg(not(target_os = "android"))]
+            let _ = (app, api);
+            Ok(())
+        })
+        .build()
+}
+
+async fn call_android_io(
+    app: tauri::AppHandle,
+    command: &'static str,
+    payload: serde_json::Value,
+) -> Result<serde_json::Value, String> {
+    #[cfg(target_os = "android")]
+    {
+        return app
+            .state::<AndroidIoState>()
+            .0
+            .run_mobile_plugin_async(command, payload)
+            .await
+            .map_err(|error| error.to_string());
+    }
+    #[cfg(not(target_os = "android"))]
+    {
+        let _ = (app, command, payload);
+        Err("Penyimpanan native ini hanya tersedia pada Android.".to_string())
+    }
+}
+
+#[tauri::command]
+async fn android_io_begin_export(
+    app: tauri::AppHandle,
+    file_name: String,
+    mime_type: String,
+    total_bytes: u64,
+) -> Result<serde_json::Value, String> {
+    call_android_io(
+        app,
+        "beginExport",
+        serde_json::json!({ "fileName": file_name, "mimeType": mime_type, "totalBytes": total_bytes }),
+    )
+    .await
+}
+
+#[tauri::command]
+async fn android_io_append_export_chunk(
+    app: tauri::AppHandle,
+    export_id: String,
+    base64: String,
+    offset: u64,
+) -> Result<serde_json::Value, String> {
+    call_android_io(
+        app,
+        "appendExportChunk",
+        serde_json::json!({ "exportId": export_id, "base64": base64, "offset": offset }),
+    )
+    .await
+}
+
+#[tauri::command]
+async fn android_io_save_export(
+    app: tauri::AppHandle,
+    export_id: String,
+) -> Result<serde_json::Value, String> {
+    call_android_io(app, "saveExport", serde_json::json!({ "exportId": export_id })).await
+}
+
+#[tauri::command]
+async fn android_io_abort_export(
+    app: tauri::AppHandle,
+    export_id: String,
+) -> Result<serde_json::Value, String> {
+    call_android_io(app, "abortExport", serde_json::json!({ "exportId": export_id })).await
+}
+
+#[tauri::command]
+async fn android_io_print_report(
+    app: tauri::AppHandle,
+    html: String,
+    job_name: String,
+) -> Result<serde_json::Value, String> {
+    call_android_io(
+        app,
+        "printReport",
+        serde_json::json!({ "html": html, "jobName": job_name }),
+    )
+    .await
+}
+
 pub fn get_db_path<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> PathBuf {
     // Pada Android atau sistem modern, gunakan app_data_dir dari Tauri
     if let Ok(app_dir) = app.path().app_data_dir() {
@@ -33,6 +132,7 @@ pub fn get_db_path<R: tauri::Runtime>(app: &tauri::AppHandle<R>) -> PathBuf {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(android_io_plugin())
         .setup(|app| {
             let db_path = get_db_path(app.handle());
             let db = Database::new(&db_path).unwrap_or_else(|err| {
@@ -59,6 +159,11 @@ pub fn run() {
             save_qc_record_cmd,
             list_qc_records_cmd,
             export_jpeg_cmd,
+            android_io_begin_export,
+            android_io_append_export_chunk,
+            android_io_save_export,
+            android_io_abort_export,
+            android_io_print_report,
         ])
         .run(tauri::generate_context!())
         .expect("Gagal menjalankan aplikasi Studio Color QC");

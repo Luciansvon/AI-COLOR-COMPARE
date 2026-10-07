@@ -98,12 +98,68 @@ export async function extractPixelsFromImageROI(
  */
 export async function renderCorrectedPreview(
   originalSrc: string,
-  correction: CorrectionParams
+  correction: CorrectionParams,
+  maxDimension?: number,
 ): Promise<string> {
   if (!hasActiveCorrection(correction)) {
-    return originalSrc;
+    return maxDimension === undefined ? originalSrc : createImagePreviewSource(originalSrc, maxDimension);
   }
-  return convertImageToJpegDataUrl(originalSrc, 0.95, correction);
+  const img = await loadImage(originalSrc);
+  const width = img.naturalWidth || img.width;
+  const height = img.naturalHeight || img.height;
+  const dimensions = maxDimension === undefined ? { width, height } : previewDimensions(width, height, maxDimension);
+  const canvas = drawImageToCanvas(img, dimensions.width, dimensions.height);
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  if (!ctx) throw new Error('Gagal mendapatkan konteks untuk pratinjau koreksi');
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const data = imageData.data;
+  for (let i = 0; i < data.length; i += 4) {
+    const corrected = applyCorrectionToRgb(data[i], data[i + 1], data[i + 2], correction);
+    data[i] = corrected.r;
+    data[i + 1] = corrected.g;
+    data[i + 2] = corrected.b;
+  }
+  ctx.putImageData(imageData, 0, 0);
+  const preview = canvas.toDataURL('image/jpeg', 0.9);
+  if (!preview.startsWith('data:image/jpeg')) throw new Error('Pratinjau koreksi gagal dibuat.');
+  return preview;
+}
+
+/** Membatasi piksel yang dikirim ke WebView. Sumber asli tetap dipakai untuk ukur dan ekspor. */
+export async function createImagePreviewSource(source: string, maxDimension = 2048): Promise<string> {
+  if (!source) return '';
+  const img = await loadImage(source);
+  const dimensions = previewDimensions(img.naturalWidth || img.width, img.naturalHeight || img.height, maxDimension);
+  if (dimensions.width === (img.naturalWidth || img.width)
+    && dimensions.height === (img.naturalHeight || img.height)) return source;
+  const canvas = drawImageToCanvas(img, dimensions.width, dimensions.height);
+  const preview = canvas.toDataURL('image/jpeg', 0.9);
+  if (!preview.startsWith('data:image/jpeg')) throw new Error('Gagal membuat pratinjau foto.');
+  return preview;
+}
+
+/** Android WebView memakai gambar tampilan lebih kecil; desktop mempertahankan sumber penuh. */
+export function createPlatformPreviewSource(source: string, useAndroidPreview: boolean): Promise<string> {
+  return useAndroidPreview ? createImagePreviewSource(source, 2048) : Promise.resolve(source);
+}
+
+function previewDimensions(width: number, height: number, maxDimension = 2048) {
+  if (width <= 0 || height <= 0 || maxDimension <= 0) throw new Error('Dimensi pratinjau tidak valid.');
+  const scale = Math.min(1, maxDimension / width, maxDimension / height);
+  return {
+    width: Math.max(1, Math.round(width * scale)),
+    height: Math.max(1, Math.round(height * scale)),
+  };
+}
+
+function drawImageToCanvas(img: HTMLImageElement, width: number, height: number): HTMLCanvasElement {
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  if (!ctx) throw new Error('Gagal mendapatkan konteks canvas pratinjau gambar.');
+  ctx.drawImage(img, 0, 0, width, height);
+  return canvas;
 }
 
 /**
@@ -115,6 +171,37 @@ export async function convertImageToJpegDataUrl(
   quality: number = 0.95,
   correction?: CorrectionParams
 ): Promise<string> {
+  const canvas = await renderJpegCanvas(source, quality, correction);
+  const dataUrl = canvas.toDataURL('image/jpeg', Math.max(0.1, Math.min(1, quality)));
+  if (!dataUrl.startsWith('data:image/jpeg')) {
+    throw new Error('Browser gagal menghasilkan data JPEG');
+  }
+  return dataUrl;
+}
+
+/** Membuat JPEG sebagai Blob agar Android dapat menulisnya bertahap tanpa string base64 besar. */
+export async function convertImageToJpegBlob(
+  source: string,
+  quality: number = 0.95,
+  correction?: CorrectionParams
+): Promise<Blob> {
+  const canvas = await renderJpegCanvas(source, quality, correction);
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (!blob || blob.type !== 'image/jpeg') {
+        reject(new Error('Browser gagal menghasilkan berkas JPEG.'));
+        return;
+      }
+      resolve(blob);
+    }, 'image/jpeg', Math.max(0.1, Math.min(1, quality)));
+  });
+}
+
+async function renderJpegCanvas(
+  source: string,
+  quality: number,
+  correction?: CorrectionParams
+): Promise<HTMLCanvasElement> {
   if (!source) throw new Error('Sumber gambar ekspor kosong');
 
   const img = await loadImage(source);
@@ -144,10 +231,5 @@ export async function convertImageToJpegDataUrl(
     ctx.putImageData(imgData, 0, 0);
   }
 
-  const safeQuality = Math.max(0.1, Math.min(1, quality));
-  const dataUrl = canvas.toDataURL('image/jpeg', safeQuality);
-  if (!dataUrl.startsWith('data:image/jpeg')) {
-    throw new Error('Browser gagal menghasilkan data JPEG');
-  }
-  return dataUrl;
+  return canvas;
 }

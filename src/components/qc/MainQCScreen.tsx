@@ -18,7 +18,8 @@ import { CorrectionPanel, ExportFeedback } from './CorrectionPanel';
 import { BatchExportPanel } from './BatchExportPanel';
 import { DecisionModal } from './DecisionModal';
 import { QCReportModal } from './QCReportModal';
-import { convertImageToJpegDataUrl, extractPixelsFromImageROI, renderCorrectedPreview } from '../../utils/canvasColorExtractor';
+import { convertImageToJpegBlob, convertImageToJpegDataUrl, createPlatformPreviewSource, extractPixelsFromImageROI, renderCorrectedPreview } from '../../utils/canvasColorExtractor';
+import { isAndroidTauriEnvironment, saveBlobToAndroid } from '../../services/androidExports';
 import { compareStats } from '../../color_science/metrics';
 import { calculateRecommendedCorrection, ZERO_CORRECTION } from '../../color_science/correction';
 import { hasActiveCorrection } from '../../color_science/imageCorrection';
@@ -82,9 +83,13 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
 
   // State Gambar
   const [masterImageSrc, setMasterImageSrc] = useState<string>('');
+  const [masterPreviewSrc, setMasterPreviewSrc] = useState<string>('');
   const [masterFileName, setMasterFileName] = useState<string>('');
   const [productImageSrc, setProductImageSrc] = useState<string>('');
+  const [productPreviewSrc, setProductPreviewSrc] = useState<string>('');
   const [previewImageSrc, setPreviewImageSrc] = useState<string>('');
+  const [isPreparingMasterPreview, setIsPreparingMasterPreview] = useState(false);
+  const [isPreparingProductPreview, setIsPreparingProductPreview] = useState(false);
   const [selectedScenario, setSelectedScenario] = useState<string>('scenario-wb');
   const [productName, setProductName] = useState<string>('Produk Uji Studio');
 
@@ -159,6 +164,9 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
   const [productFailReasons, setProductFailReasons] = useState<string[]>([]);
   const [productFailNote, setProductFailNote] = useState<string>('');
   const comparisonGeneration = useRef(0);
+  const pendingRoiReanalysis = useRef(false);
+  const masterPreviewGeneration = useRef(0);
+  const productPreviewGeneration = useRef(0);
   const [measurementCorrection, setMeasurementCorrection] = useState<CorrectionParams | null>(null);
   const [comparisonError, setComparisonError] = useState('');
   const [exportFeedback, setExportFeedback] = useState<ExportFeedback | null>(null);
@@ -181,6 +189,7 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
   };
 
   const resetAnalysis = (nextStatus: 'idle' | 'ready') => {
+    pendingRoiReanalysis.current = false;
     exportGeneration.current += 1;
     exportInFlight.current = false;
     setExportFeedback(null);
@@ -222,6 +231,8 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
   useEffect(() => () => {
     exportGeneration.current += 1;
     comparisonGeneration.current += 1;
+    masterPreviewGeneration.current += 1;
+    productPreviewGeneration.current += 1;
     uploadReaders.current.master?.abort();
     uploadReaders.current.product?.abort();
   }, []);
@@ -241,6 +252,7 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
         isChairComposition: false,
       });
       setMasterImageSrc(masterImg);
+      setMasterPreviewSrc(masterImg);
       setMasterFileName(`${currentMaster.code}_simulasi_master.png`);
       loadScenario(selectedScenario);
     }
@@ -250,62 +262,117 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
     setRoiPreset(preset);
     if (preset !== 'custom') {
       const newRois = ROI_PRESETS[preset];
+      const shouldReanalyze = comparisonStatus === 'completed'
+        || comparisonStatus === 'analyzing'
+        || isRecomparing
+        || pendingRoiReanalysis.current;
       setRois(newRois);
       setSelectedRoiId(newRois[0].id);
-      if (comparisonStatus === 'completed' && masterImageSrc && productImageSrc) {
-        executeComparison(masterImageSrc, productImageSrc, newRois);
+      if (shouldReanalyze) {
+        invalidateComparisonForRoiChange();
+        pendingRoiReanalysis.current = false;
+        if (masterImageSrc && productImageSrc) {
+          executeComparison(masterImageSrc, productImageSrc, newRois);
+        }
       }
     }
   };
 
+  // Area yang berubah membatalkan hasil yang sedang dihitung atau sudah tampil.
+  // Dengan begitu tombol keputusan tidak bisa menyimpan angka lama bersama kotak baru.
+  const invalidateComparisonForRoiChange = () => {
+    comparisonGeneration.current += 1;
+    setIsRecomparing(false);
+    setRecompareSuccess(false);
+    setMeasurementCorrection(null);
+    setRoiMeasured({});
+    setRoiEstimated({});
+    setRoiFusion({});
+    clearDecisions();
+    setComparisonError('');
+    setComparisonStatus(masterImageSrc && productImageSrc ? 'ready' : 'idle');
+  };
+
   // Handler saat pengguna menggeser atau mengubah ukuran kotak area di foto
   const handleUpdateRoiBox = (roiId: string, newBox: ROIBox, isFinal: boolean = true) => {
+    const hadMeasurementOrWork = comparisonStatus === 'completed'
+      || comparisonStatus === 'analyzing'
+      || isRecomparing;
     setRoiPreset('custom');
     const updatedRois = rois.map((r) => (r.id === roiId ? { ...r, box: newBox } : r));
     setRois(updatedRois);
 
-    // Hitung ulang perbandingan HANYA saat isFinal true (saat mouse dilepas)
-    // dan gunakan silent update agar status comparisonStatus tidak berubah ke 'analyzing'
-    // yang menyebabkan layar berkedip/naik-turun (layout shift).
-    if (isFinal && comparisonStatus === 'completed' && masterImageSrc && productImageSrc) {
-      executeComparison(masterImageSrc, productImageSrc, updatedRois, true);
+    if (hadMeasurementOrWork) {
+      invalidateComparisonForRoiChange();
+      pendingRoiReanalysis.current = !isFinal;
+    }
+
+    if (isFinal && masterImageSrc && productImageSrc
+      && (hadMeasurementOrWork || pendingRoiReanalysis.current)) {
+      pendingRoiReanalysis.current = false;
+      executeComparison(masterImageSrc, productImageSrc, updatedRois, comparisonStatus === 'completed');
     }
   };
 
   // Handler saat pengguna menggeser atau mengubah ukuran kotak area foto master
   const handleUpdateMasterRoiBox = (newBox: ROIBox, isFinal: boolean = true) => {
+    const hadMeasurementOrWork = comparisonStatus === 'completed'
+      || comparisonStatus === 'analyzing'
+      || isRecomparing;
     setMasterRoiBox(newBox);
-    if (isFinal && comparisonStatus === 'completed' && masterImageSrc && productImageSrc) {
-      executeComparison(masterImageSrc, productImageSrc, rois, true, newBox);
+    if (hadMeasurementOrWork) {
+      invalidateComparisonForRoiChange();
+      pendingRoiReanalysis.current = !isFinal;
+    }
+
+    if (isFinal && masterImageSrc && productImageSrc
+      && (hadMeasurementOrWork || pendingRoiReanalysis.current)) {
+      pendingRoiReanalysis.current = false;
+      executeComparison(masterImageSrc, productImageSrc, rois, comparisonStatus === 'completed', newBox);
     }
   };
 
   const handleMasterUpload = (file: File) => {
     uploadReaders.current.master?.abort();
+    const previewGeneration = ++masterPreviewGeneration.current;
     resetAnalysis('idle');
     setMasterImageSrc('');
+    setMasterPreviewSrc('');
+    setIsPreparingMasterPreview(true);
     const reader = new FileReader();
     uploadReaders.current.master = reader;
     reader.onload = (event) => {
       const dataUrl = event.target?.result as string;
       setMasterImageSrc(dataUrl);
       setMasterFileName(file.name);
+      void createPlatformPreviewSource(dataUrl, isAndroidTauriEnvironment()).then((preview) => {
+        if (previewGeneration === masterPreviewGeneration.current) setMasterPreviewSrc(preview);
+      }).catch(() => {
+        if (previewGeneration === masterPreviewGeneration.current) setMasterPreviewSrc(dataUrl);
+      }).finally(() => {
+        if (previewGeneration === masterPreviewGeneration.current) setIsPreparingMasterPreview(false);
+      });
     };
-    reader.onerror = () => setComparisonError('Foto master gagal dibaca. Pilih ulang berkas.');
+    reader.onerror = () => {
+      if (previewGeneration === masterPreviewGeneration.current) setIsPreparingMasterPreview(false);
+      setComparisonError('Foto master gagal dibaca. Pilih ulang berkas.');
+    };
     reader.readAsDataURL(file);
   };
 
   const handleProductUpload = (file: File) => {
     uploadReaders.current.product?.abort();
+    const previewGeneration = ++productPreviewGeneration.current;
     resetAnalysis('idle');
     setProductImageSrc('');
+    setProductPreviewSrc('');
     setPreviewImageSrc('');
+    setIsPreparingProductPreview(true);
     const reader = new FileReader();
     uploadReaders.current.product = reader;
     reader.onload = (event) => {
       const dataUrl = event.target?.result as string;
       setProductImageSrc(dataUrl);
-      setPreviewImageSrc(dataUrl);
       setImageMetadata({
         fileName: file.name,
         fileSize: file.size,
@@ -314,8 +381,24 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
         lens: 'Tidak tersedia',
         whiteBalance: 'Tidak tersedia',
       });
+      void createPlatformPreviewSource(dataUrl, isAndroidTauriEnvironment()).then((preview) => {
+        if (previewGeneration === productPreviewGeneration.current) {
+          setProductPreviewSrc(preview);
+          if (!isPreviewingCorrection) setPreviewImageSrc(preview);
+        }
+      }).catch(() => {
+        if (previewGeneration === productPreviewGeneration.current) {
+          setProductPreviewSrc(dataUrl);
+          if (!isPreviewingCorrection) setPreviewImageSrc(dataUrl);
+        }
+      }).finally(() => {
+        if (previewGeneration === productPreviewGeneration.current) setIsPreparingProductPreview(false);
+      });
     };
-    reader.onerror = () => setComparisonError('Foto produk gagal dibaca. Pilih ulang berkas.');
+    reader.onerror = () => {
+      if (previewGeneration === productPreviewGeneration.current) setIsPreparingProductPreview(false);
+      setComparisonError('Foto produk gagal dibaca. Pilih ulang berkas.');
+    };
     reader.readAsDataURL(file);
   };
 
@@ -446,7 +529,8 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
       const generation = comparisonGeneration.current;
       const appliedCorrection = isPreviewingCorrection ? { ...correctionParams } : undefined;
       const targetProductImg = appliedCorrection
-        ? await renderCorrectedPreview(productImageSrc, appliedCorrection)
+        // Pengukuran memakai foto terkoreksi resolusi penuh; pratinjau layar boleh lebih kecil.
+        ? await convertImageToJpegDataUrl(productImageSrc, 0.95, appliedCorrection)
         : productImageSrc;
       if (generation !== comparisonGeneration.current) return;
       const succeeded = await executeComparison(masterImageSrc, targetProductImg, rois, true, undefined, undefined, appliedCorrection);
@@ -475,6 +559,7 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
         isChairComposition: false,
       });
       setMasterImageSrc(mImg);
+      setMasterPreviewSrc(mImg);
       setMasterFileName(`${currentMaster.code}_simulasi_master.png`);
     }
 
@@ -532,7 +617,23 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
     }
 
     setProductImageSrc(prodImg);
-    setPreviewImageSrc(prodImg);
+    const previewGeneration = ++productPreviewGeneration.current;
+    setProductPreviewSrc('');
+    setPreviewImageSrc('');
+    setIsPreparingProductPreview(true);
+    void createPlatformPreviewSource(prodImg, isAndroidTauriEnvironment()).then((preview) => {
+      if (previewGeneration === productPreviewGeneration.current) {
+        setProductPreviewSrc(preview);
+        setPreviewImageSrc(preview);
+      }
+    }).catch(() => {
+      if (previewGeneration === productPreviewGeneration.current) {
+        setProductPreviewSrc(prodImg);
+        setPreviewImageSrc(prodImg);
+      }
+    }).finally(() => {
+      if (previewGeneration === productPreviewGeneration.current) setIsPreparingProductPreview(false);
+    });
     executeComparison(mImg, prodImg, undefined, false, undefined, scenarioKey);
   };
 
@@ -541,12 +642,12 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
     if (!productImageSrc) return;
 
     if (!isPreviewingCorrection) {
-      setPreviewImageSrc(productImageSrc);
+      setPreviewImageSrc(productPreviewSrc);
       return;
     }
 
     let cancelled = false;
-    renderCorrectedPreview(productImageSrc, correctionParams).then((res) => {
+    renderCorrectedPreview(productImageSrc, correctionParams, isAndroidTauriEnvironment() ? 2048 : undefined).then((res) => {
       if (!cancelled) setPreviewImageSrc(res);
     }).catch((error) => {
       if (!cancelled) {
@@ -556,7 +657,7 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
       }
     });
     return () => { cancelled = true; };
-  }, [correctionParams, isPreviewingCorrection, productImageSrc]);
+  }, [correctionParams, isPreviewingCorrection, productImageSrc, productPreviewSrc]);
 
   // Handler Keputusan Operator Per-ROI
   const handleRoiDecision = (roiId: string, decision: 'PASS' | 'FAIL') => {
@@ -594,8 +695,8 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
   };
 
   // Konfirmasi Alasan FAIL dari Modal
-  const handleConfirmFail = async (reasons: string[], note: string) => {
-    if (isRecomparing || evidenceStale || comparisonStatus !== 'completed') return;
+  const handleConfirmFail = async (reasons: string[], note: string): Promise<boolean> => {
+    if (isRecomparing || evidenceStale || comparisonStatus !== 'completed') return false;
     const generation = comparisonGeneration.current;
     if (failTarget.type === 'roi' && failTarget.id) {
       setRoiDecisions((prev) => ({
@@ -607,11 +708,14 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
           note,
         },
       }));
+      return true;
     } else {
+      const saved = await saveFinalRecord('FAIL', reasons, note);
+      if (!saved || generation !== comparisonGeneration.current) return false;
       setProductFailReasons(reasons);
       setProductFailNote(note);
-      const saved = await saveFinalRecord('FAIL', reasons, note);
-      if (saved && generation === comparisonGeneration.current) setProductDecision('FAIL');
+      setProductDecision('FAIL');
+      return true;
     }
   };
 
@@ -660,14 +764,31 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
       // Tampilkan indikator sebelum pekerjaan piksel dimulai.
       await new Promise((resolve) => setTimeout(resolve, 0));
       if (generation !== exportGeneration.current) return;
-      const jpegDataUrl = await convertImageToJpegDataUrl(productImageSrc, 0.95, correctionParams);
-      if (generation !== exportGeneration.current) return;
       const baseName = (imageMetadata.fileName || 'studio_qc_export').replace(/\.[^/.]+$/, '');
-      const link = document.createElement('a');
-      link.download = `${baseName}_corrected_srgb.jpg`;
-      link.href = jpegDataUrl;
-      link.click();
-      setExportFeedback({ status: 'success', message: `JPEG siap: ${link.download}. Permintaan unduhan dikirim. Periksa folder unduhan atau dialog penyimpanan.` });
+      const fileName = `${baseName}_corrected_srgb.jpg`;
+      if (isAndroidTauriEnvironment()) {
+        const jpegBlob = await convertImageToJpegBlob(productImageSrc, 0.95, correctionParams);
+        if (generation !== exportGeneration.current) return;
+        const result = await saveBlobToAndroid(jpegBlob, fileName, 'image/jpeg', (completed, total) => {
+          if (generation !== exportGeneration.current) return;
+          setExportFeedback({ status: 'processing', message: `Menulis JPEG ${Math.ceil(completed / 1024 / 1024)} / ${Math.ceil(total / 1024 / 1024)} MiB. Tunggu konfirmasi Android.` });
+        }, () => {
+          if (generation !== exportGeneration.current) return;
+          setExportFeedback({ status: 'processing', message: 'Pilih tujuan JPEG pada Android. Jika dibatalkan, aplikasi tidak akan melaporkan berkas tersimpan.' });
+        });
+        if (generation !== exportGeneration.current) return;
+        setExportFeedback(result.status === 'saved'
+          ? { status: 'success', message: `JPEG tersimpan dan diverifikasi: ${result.fileName} (${result.bytesWritten?.toLocaleString('id-ID')} bita).` }
+          : { status: 'cancelled', message: 'Penyimpanan dibatalkan. Tidak ada JPEG yang dinyatakan tersimpan.' });
+      } else {
+        const jpegDataUrl = await convertImageToJpegDataUrl(productImageSrc, 0.95, correctionParams);
+        if (generation !== exportGeneration.current) return;
+        const link = document.createElement('a');
+        link.download = fileName;
+        link.href = jpegDataUrl;
+        link.click();
+        setExportFeedback({ status: 'success', message: `JPEG siap: ${link.download}. Permintaan unduhan dikirim.` });
+      }
     } catch (err) {
       if (generation !== exportGeneration.current) return;
       console.error('Gagal mengekspor JPEG yang valid:', err);
@@ -684,11 +805,17 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
         <div className="hidden sm:grid grid-cols-2 gap-2 w-full sm:w-auto">
           <button
             onClick={() => {
+              masterPreviewGeneration.current += 1;
+              productPreviewGeneration.current += 1;
               setAppMode('upload');
               setMasterImageSrc('');
+              setMasterPreviewSrc('');
               setMasterFileName('');
               setProductImageSrc('');
+              setProductPreviewSrc('');
               setPreviewImageSrc('');
+              setIsPreparingMasterPreview(false);
+              setIsPreparingProductPreview(false);
               setImageMetadata({
                 fileName: '',
                 fileSize: 0,
@@ -964,7 +1091,7 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
         <InteractiveImageViewer
           title="1. Master Acuan (Kiri)"
           subtitle={masterFileName ? `Berkas: ${masterFileName}` : 'Pilih foto sampel master kayu (JPG/PNG/WebP)'}
-          imageSrc={masterImageSrc}
+          imageSrc={masterPreviewSrc}
           isMaster={true}
           rois={masterRois}
           selectedRoiId="roi-master-ref"
@@ -990,6 +1117,12 @@ export const MainQCScreen: React.FC<MainQCScreenProps> = ({
           uploadButtonText="Pilih Foto Produk Studio (JPG/PNG/WebP)"
         />
       </div>
+
+      {(isPreparingMasterPreview || isPreparingProductPreview) && <p role="status" className="text-xs text-sky-300">
+        {isAndroidTauriEnvironment()
+          ? 'Menyiapkan pratinjau Android yang lebih ringan. Pengukuran dan ekspor tetap memakai foto asli beresolusi penuh.'
+          : 'Menyiapkan foto untuk perbandingan.'}
+      </p>}
 
       {/* PANEL TOMBOL AKSI UTAMA (Action Center) */}
       <div className="bg-gradient-to-r from-studio-900 via-studio-850 to-studio-900 border border-studio-800 rounded-2xl p-4 sm:p-5 shadow-xl flex flex-col md:flex-row items-center justify-between gap-4">

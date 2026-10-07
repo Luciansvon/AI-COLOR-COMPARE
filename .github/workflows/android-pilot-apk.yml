@@ -7,6 +7,8 @@ on:
     paths:
       - 'src-tauri/**'
       - 'src/**'
+      - 'package.json'
+      - 'package-lock.json'
       - '.github/workflows/android-pilot-apk.yml'
   workflow_dispatch:
 
@@ -72,19 +74,23 @@ jobs:
       - name: Cari dan Siapkan Berkas APK
         id: find_apk
         run: |
-          APK_FILE=$(find src-tauri/gen/android -name "*.apk" | head -n 1)
+          APP_VERSION=$(node -p "require('./package.json').version")
+          APK_FILE=$(find src-tauri/gen/android/app/build/outputs/apk/arm64/debug -name "*.apk" -type f | head -n 1)
           if [ -z "$APK_FILE" ]; then
             echo "Berkas APK tidak ditemukan!"
             exit 1
           fi
           echo "APK Ditemukan: $APK_FILE"
+          APK_NAME="Studio-Color-QC-v${APP_VERSION}-Android-Pilot.apk"
           mkdir -p artifacts
-          cp "$APK_FILE" artifacts/Studio-Color-QC-v0.3.10-Android-Pilot.apk
+          cp "$APK_FILE" "artifacts/$APK_NAME"
+          echo "version=$APP_VERSION" >> "$GITHUB_OUTPUT"
+          echo "apk_name=$APK_NAME" >> "$GITHUB_OUTPUT"
           ls -lh artifacts/
 
       - name: Unggah Artefak APK Android
         uses: actions/upload-artifact@v4
         with:
-          name: Studio-Color-QC-Android-Pilot-APK
-          path: artifacts/Studio-Color-QC-v0.3.10-Android-Pilot.apk
+          name: android-apk-v${{ steps.find_apk.outputs.version }}
+          path: artifacts/${{ steps.find_apk.outputs.apk_name }}
           retention-days: 14

@@ -3,7 +3,7 @@ import { CorrectionParams, CorrectionConflict } from '../../types';
 import { Sliders, AlertOctagon, Sparkles, RotateCcw, Download, Eye, EyeOff, LoaderCircle } from 'lucide-react';
 
 export interface ExportFeedback {
-  status: 'processing' | 'success' | 'error';
+  status: 'processing' | 'success' | 'error' | 'cancelled';
   message: string;
 }
 

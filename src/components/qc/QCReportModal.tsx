@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { invoke } from '@tauri-apps/api/core';
 import { brightnessComparison } from '../../utils/measurementDisplay';
 import { ROIItem, MeasuredEvidence, UnifiedMaterialReport, CorrectionParams, ImageMetadata } from '../../types';
 import { X, Printer, CheckCircle2, XCircle, Layers, FileText } from 'lucide-react';
 import { useModalAccessibility } from '../common/useModalAccessibility';
+import { isAndroidTauriEnvironment } from '../../services/androidExports';
 
 interface QCReportModalProps {
   isOpen: boolean;
@@ -37,12 +39,62 @@ export const QCReportModal: React.FC<QCReportModalProps> = ({
   correctionParams,
   isCorrectedMeasurement = false,
 }) => {
+  const [isPrinting, setIsPrinting] = useState(false);
+  const [printMessage, setPrintMessage] = useState('');
+  const [printError, setPrintError] = useState('');
   const dialogRef = useModalAccessibility(isOpen, onClose);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setPrintMessage('');
+      setPrintError('');
+      setIsPrinting(false);
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
-  const handlePrint = () => {
-    window.print();
+  const handlePrint = async () => {
+    if (isPrinting) return;
+    setIsPrinting(true);
+    setPrintMessage('');
+    setPrintError('');
+    try {
+      if (!isAndroidTauriEnvironment()) {
+        window.print();
+        return;
+      }
+
+      const report = document.querySelector<HTMLElement>('[data-qc-report-content]');
+      if (!report) throw new Error('Isi laporan cetak tidak ditemukan.');
+      const reportCopy = report.cloneNode(true) as HTMLElement;
+      reportCopy.querySelectorAll('[href], [src]').forEach((element) => {
+        for (const attribute of ['href', 'src']) {
+          const value = element.getAttribute(attribute);
+          if (value && /^(?:https?:)?\/\//i.test(value)) element.removeAttribute(attribute);
+        }
+      });
+      const localCss: string[] = [];
+      for (const sheet of Array.from(document.styleSheets)) {
+        try {
+          for (const rule of Array.from(sheet.cssRules)) {
+            if (/(?:@import\s+|url\s*\()[^;}]*?(?:https?:)?\/\//i.test(rule.cssText)) continue;
+            localCss.push(rule.cssText);
+          }
+        } catch {
+          // Cross-origin CSS tidak dimasukkan ke laporan lokal.
+        }
+      }
+      const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${localCss.join('\n')}\n@page{size:A4;margin:12mm}html,body{background:#fff!important;color:#111!important}body{margin:0;padding:0}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}</style></head><body>${reportCopy.outerHTML}</body></html>`;
+      const jobName = `QC-${masterCode}-${new Date().toISOString().slice(0, 10)}`;
+      const result = await invoke<{ status?: string }>('android_io_print_report', { html, jobName });
+      if (result.status !== 'dialog_open') throw new Error('Android belum mengonfirmasi bahwa dialog cetak dibuka.');
+      setPrintMessage('Dialog cetak Android sudah dibuka. Pilih “Simpan sebagai PDF” atau batalkan di Android; PDF belum dinyatakan tersimpan.');
+    } catch (cause) {
+      setPrintError(cause instanceof Error ? cause.message : 'Dialog cetak gagal dibuka. Coba lagi.');
+    } finally {
+      setIsPrinting(false);
+    }
   };
 
   const currentDate = new Date().toLocaleDateString('id-ID', {
@@ -91,11 +143,12 @@ export const QCReportModal: React.FC<QCReportModalProps> = ({
           <div className="flex items-center space-x-2">
             <button
               onClick={handlePrint}
+              disabled={isPrinting}
               id="btn-print-qc-report"
-              className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition shadow-lg shadow-amber-500/20"
+              className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-black text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition shadow-lg shadow-amber-500/20 disabled:opacity-50"
             >
               <Printer className="w-4 h-4" />
-              <span>Cetak / Simpan PDF</span>
+              <span>{isPrinting ? 'Membuka Dialog Cetak...' : 'Cetak / Simpan PDF'}</span>
             </button>
             <button type="button" onClick={onClose} aria-label="Tutup laporan QC" className="p-1.5 rounded-lg text-studio-400 hover:text-white hover:bg-studio-800">
               <X className="w-5 h-5" />
@@ -103,8 +156,12 @@ export const QCReportModal: React.FC<QCReportModalProps> = ({
           </div>
         </div>
 
+        {(printMessage || printError) && <p role={printError ? 'alert' : 'status'} className={`px-4 py-2 text-xs ${printError ? 'text-rose-300' : 'text-emerald-300'}`}>
+          {printError || printMessage}
+        </p>}
+
         {/* Kertas Laporan (Tampilan Putih Formal) */}
-        <div className="p-6 md:p-8 overflow-y-auto flex-1 bg-white text-gray-900 font-sans space-y-6 print:p-0">
+        <div data-qc-report-content className="p-6 md:p-8 overflow-y-auto flex-1 bg-white text-gray-900 font-sans space-y-6 print:p-0">
           {/* Kop Dokumen */}
           <div className="border-b-2 border-gray-900 pb-4 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
             <div>
